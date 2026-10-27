@@ -29,6 +29,12 @@ public interface IDockerService : IDisposable
     Task StopAsync(string id, CancellationToken ct);
     Task RestartAsync(string id, CancellationToken ct);
 
+    Task PauseAsync(string id, CancellationToken ct);
+    Task UnpauseAsync(string id, CancellationToken ct);
+
+    /// <summary>Sends SIGKILL at once, without the grace period of <see cref="StopAsync"/>.</summary>
+    Task KillAsync(string id, CancellationToken ct);
+
     /// <summary>Removes a stopped container; the daemon refuses a running one.</summary>
     Task RemoveContainerAsync(string id, CancellationToken ct);
 

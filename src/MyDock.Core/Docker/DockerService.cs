@@ -87,6 +87,15 @@ public sealed class DockerService : IDockerService
     public Task RestartAsync(string id, CancellationToken ct) =>
         RunAsync(() => _client.Containers.RestartContainerAsync(id, new ContainerRestartParameters(), ct));
 
+    public Task PauseAsync(string id, CancellationToken ct) =>
+        RunAsync(() => _client.Containers.PauseContainerAsync(id, ct));
+
+    public Task UnpauseAsync(string id, CancellationToken ct) =>
+        RunAsync(() => _client.Containers.UnpauseContainerAsync(id, ct));
+
+    public Task KillAsync(string id, CancellationToken ct) =>
+        RunAsync(() => _client.Containers.KillContainerAsync(id, new ContainerKillParameters(), ct));
+
     public Task RemoveContainerAsync(string id, CancellationToken ct) =>
         RunAsync(() => _client.Containers.RemoveContainerAsync(id, new ContainerRemoveParameters(), ct));
 
@@ -123,7 +132,8 @@ public sealed class DockerService : IDockerService
             new DateTimeOffset(DateTime.SpecifyKind(c.Created, DateTimeKind.Utc)),
             string.IsNullOrEmpty(project) ? null : project,
             FormatPorts(c.Ports?.Select(p => ((long)p.PrivatePort, (long)(p.PublicPort ?? 0), p.Type))),
-            FormatNetworks(c.NetworkSettings?.Networks));
+            FormatNetworks(c.NetworkSettings?.Networks),
+            WebPorts(c.Ports?.Select(p => ((long)(p.PublicPort ?? 0), p.Type))));
     }
 
     // Docker lists a published port once per host address (IPv4 and IPv6): the text is the same, so dedupe.
@@ -135,6 +145,18 @@ public sealed class DockerService : IDockerService
             .Distinct()
             .ToList();
         return text.Count == 0 ? null : string.Join(", ", text);
+    }
+
+    // Only TCP ports can be opened in a browser; IPv4 and IPv6 bindings of the same port collapse into one.
+    internal static IReadOnlyList<int>? WebPorts(IEnumerable<(long Public, string Type)>? ports)
+    {
+        var list = (ports ?? [])
+            .Where(p => p.Public > 0 && p.Type == "tcp")
+            .Select(p => (int)p.Public)
+            .Distinct()
+            .Order()
+            .ToList();
+        return list.Count == 0 ? null : list;
     }
 
     // The default networks say nothing about how the container is wired.

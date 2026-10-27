@@ -262,8 +262,11 @@ public sealed class ContainerMonitorTests : IAsyncDisposable
         await _monitor.StartContainerAsync("a");
         await _monitor.StopContainerAsync("b");
         await _monitor.RestartContainerAsync("c");
+        await _monitor.PauseContainerAsync("d");
+        await _monitor.UnpauseContainerAsync("d");
+        await _monitor.KillContainerAsync("e");
 
-        Assert.Equal(["start a", "stop b", "restart c"], _docker.Actions);
+        Assert.Equal(["start a", "stop b", "restart c", "pause d", "unpause d", "kill e"], _docker.Actions);
     }
 
     [Fact]

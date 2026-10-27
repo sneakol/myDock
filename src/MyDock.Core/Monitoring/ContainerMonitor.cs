@@ -86,6 +86,12 @@ public sealed class ContainerMonitor : IAsyncDisposable
 
     public Task RestartContainerAsync(string id, CancellationToken ct = default) => _docker.RestartAsync(id, ct);
 
+    public Task PauseContainerAsync(string id, CancellationToken ct = default) => _docker.PauseAsync(id, ct);
+
+    public Task UnpauseContainerAsync(string id, CancellationToken ct = default) => _docker.UnpauseAsync(id, ct);
+
+    public Task KillContainerAsync(string id, CancellationToken ct = default) => _docker.KillAsync(id, ct);
+
     /// <summary>True when a container other than <paramref name="exceptContainerId"/>, running or not, uses the image.</summary>
     public bool IsImageShared(string imageId, string exceptContainerId) =>
         imageId.Length > 0 && Current.Containers.Any(c => c.Info.Id != exceptContainerId && c.Info.ImageId == imageId);

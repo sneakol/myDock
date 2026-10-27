@@ -141,6 +141,12 @@ internal sealed class FakeDocker : IDockerService
 
     public Task RestartAsync(string id, CancellationToken ct) => Record("restart", id);
 
+    public Task PauseAsync(string id, CancellationToken ct) => Record("pause", id);
+
+    public Task UnpauseAsync(string id, CancellationToken ct) => Record("unpause", id);
+
+    public Task KillAsync(string id, CancellationToken ct) => Record("kill", id);
+
     public Task RemoveContainerAsync(string id, CancellationToken ct) => Record("rm", id);
 
     public Task RemoveImageAsync(string reference, CancellationToken ct) => Record("rmi", reference);

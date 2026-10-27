@@ -131,6 +131,17 @@ public sealed class DockerServiceMappingTests
 
         Assert.Equal("8080→80/tcp, 5432/tcp", info.Ports);
         Assert.Equal("shop_default", info.Networks);
+        Assert.Equal([8080], info.PublicPorts);
+    }
+
+    [Fact]
+    public void Web_ports_keep_only_published_tcp_ports_once_in_order()
+    {
+        var ports = DockerService.WebPorts([(9000, "tcp"), (8080, "tcp"), (8080, "tcp"), (53, "udp"), (0, "tcp")]);
+
+        Assert.Equal([8080, 9000], ports);
+        Assert.Null(DockerService.WebPorts([(0, "tcp"), (53, "udp")]));
+        Assert.Null(DockerService.WebPorts(null));
     }
 
     [Fact]

@@ -96,6 +96,9 @@
               <TextBlock Text="Stop?" IsVisible="{Binding $parent[c:ConfirmButton].IsArmed}" />
             </Panel>
           </c:ConfirmButton>
+          <ToggleButton Classes="icon" IsChecked="{Binding IsMoreOpen}" ToolTip.Tip="More actions">
+            <PathIcon Data="{StaticResource IconMore}" />
+          </ToggleButton>
           <Button Classes="icon" Command="{Binding StartCommand}"
                   IsVisible="{Binding !IsActive}" ToolTip.Tip="Start">
             <PathIcon Data="{StaticResource IconPlay}" />
@@ -106,6 +109,42 @@
           </Button>
         </StackPanel>
       </Grid>
+
+      <!-- Secondary actions: inline rather than a popup, which would take focus and hide the panel. -->
+      <StackPanel Margin="18,0,4,0" Spacing="2" IsVisible="{Binding IsMoreOpen}" IsEnabled="{Binding !IsBusy}">
+        <WrapPanel>
+          <Button Classes="icon" Command="{Binding PauseCommand}"
+                  IsVisible="{Binding CanPause}" ToolTip.Tip="Pause">
+            <PathIcon Data="{StaticResource IconPause}" />
+          </Button>
+          <Button Classes="icon" Command="{Binding UnpauseCommand}"
+                  IsVisible="{Binding IsPaused}" ToolTip.Tip="Unpause">
+            <PathIcon Data="{StaticResource IconPlay}" />
+          </Button>
+          <c:ConfirmButton Classes="icon confirm" Command="{Binding KillCommand}"
+                           IsVisible="{Binding IsActive}" ToolTip.Tip="Kill (SIGKILL, no grace period)">
+            <Panel>
+              <PathIcon Data="{StaticResource IconKill}" IsVisible="{Binding !$parent[c:ConfirmButton].IsArmed}" />
+              <TextBlock Text="Kill?" IsVisible="{Binding $parent[c:ConfirmButton].IsArmed}" />
+            </Panel>
+          </c:ConfirmButton>
+          <Button Classes="link" Content="Copy name" Click="OnCopyName" />
+          <Button Classes="link" Content="Copy ID" Click="OnCopyId" />
+        </WrapPanel>
+        <ItemsControl ItemsSource="{Binding PublicPorts}" IsVisible="{Binding HasPublicPorts}">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <WrapPanel />
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="x:Int32">
+              <Button Classes="link" Content="{Binding StringFormat='Open :{0}'}" Tag="{Binding}" Click="OnOpenPort"
+                      ToolTip.Tip="{Binding StringFormat='http://localhost:{0}'}" />
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </StackPanel>
 
       <Grid ColumnDefinitions="*,16,*" RowDefinitions="Auto,Auto,Auto" Margin="18,0,4,0"
             IsVisible="{Binding IsActive}">

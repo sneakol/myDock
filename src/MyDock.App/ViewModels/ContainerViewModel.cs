@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using MyDock.Core.Docker;
@@ -34,6 +35,15 @@ public sealed partial class ContainerViewModel : ObservableObject
     [ObservableProperty] private string? _portsText;
     [ObservableProperty] private string? _networksText;
     [ObservableProperty] private bool _isActive;
+    [ObservableProperty] private bool _isPaused;
+
+    // The daemon refuses to pause a container that is restarting.
+    [ObservableProperty] private bool _canPause;
+    [ObservableProperty] private bool _isMoreOpen;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasPublicPorts))]
+    private IReadOnlyList<int> _publicPorts = [];
     [ObservableProperty] private Indicator _indicator;
     [ObservableProperty] private string _cpuText = NoValue;
     [ObservableProperty] private IReadOnlyList<double> _cpuHistory = [];
@@ -72,6 +82,11 @@ public sealed partial class ContainerViewModel : ObservableObject
 
     public string Id { get; }
 
+    /// <summary>The 12-character id that <c>docker ps</c> shows.</summary>
+    public string ShortId => Id[..Math.Min(12, Id.Length)];
+
+    public bool HasPublicPorts => PublicPorts.Count > 0;
+
     public string Image { get; private set; } = "";
 
     public string ImageId { get; private set; } = "";
@@ -97,9 +112,15 @@ public sealed partial class ContainerViewModel : ObservableObject
         ImageId = info.ImageId;
         Subtitle = $"{info.Image} · {info.Status}";
         IsActive = info.IsActive;
+        IsPaused = info.State == ContainerState.Paused;
+        CanPause = info.State == ContainerState.Running;
         Indicator = IndicatorFor(info);
         ComposeProject = info.ComposeProject;
         IsUnhealthy = info.Health == HealthState.Unhealthy;
+        // Rebuilding the list on every refresh would redraw the port buttons each second.
+        var ports = info.PublicPorts ?? [];
+        if (!PublicPorts.SequenceEqual(ports))
+            PublicPorts = ports;
         PortsText = info.Ports is null ? null : "Ports: " + info.Ports;
         NetworksText = info.Networks is null ? null : "Network: " + info.Networks;
 
@@ -145,6 +166,28 @@ public sealed partial class ContainerViewModel : ObservableObject
 
     [RelayCommand]
     private Task RestartAsync() => RunAsync(_monitor.RestartContainerAsync);
+
+    [RelayCommand]
+    private Task PauseAsync() => RunAsync(_monitor.PauseContainerAsync);
+
+    [RelayCommand]
+    private Task UnpauseAsync() => RunAsync(_monitor.UnpauseContainerAsync);
+
+    [RelayCommand]
+    private Task KillAsync() => RunAsync(_monitor.KillContainerAsync);
+
+    public void OpenPort(int port)
+    {
+        Error = null;
+        try
+        {
+            using var _ = Process.Start(new ProcessStartInfo("xdg-open", $"http://localhost:{port}"));
+        }
+        catch (Exception ex)
+        {
+            Error = $"Could not open the browser: {ex.Message}";
+        }
+    }
 
     [RelayCommand]
     private void Delete() => _requestDelete(this);
