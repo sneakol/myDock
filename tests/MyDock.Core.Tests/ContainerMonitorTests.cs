@@ -326,6 +326,17 @@ public sealed class ContainerMonitorTests : IAsyncDisposable
     }
 
     [Fact]
+    public async Task Volumes_are_listed_and_deleted_by_name()
+    {
+        _docker.Volumes = [new DockerVolume("db-data", "local", 10, 0)];
+
+        Assert.Equal("db-data", (await _monitor.ListVolumesAsync()).Single().Name);
+        await _monitor.DeleteVolumeAsync(_docker.Volumes[0]);
+
+        Assert.Equal(["rmvol db-data"], _docker.Actions);
+    }
+
+    [Fact]
     public async Task Actions_are_forwarded_to_docker()
     {
         await _monitor.StartContainerAsync("a");

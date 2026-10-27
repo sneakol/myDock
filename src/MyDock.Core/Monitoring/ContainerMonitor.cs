@@ -132,6 +132,10 @@ public sealed class ContainerMonitor : IAsyncDisposable
             await _docker.RemoveImageAsync(tag, ct).ConfigureAwait(false);
     }
 
+    public Task<IReadOnlyList<DockerVolume>> ListVolumesAsync(CancellationToken ct = default) => _docker.ListVolumesAsync(ct);
+
+    public Task DeleteVolumeAsync(DockerVolume volume, CancellationToken ct = default) => _docker.RemoveVolumeAsync(volume.Name, ct);
+
     public Task<long> PruneImagesAsync(CancellationToken ct = default) => _docker.PruneImagesAsync(ct);
 
     public Task<long> PruneVolumesAsync(CancellationToken ct = default) => _docker.PruneVolumesAsync(ct);

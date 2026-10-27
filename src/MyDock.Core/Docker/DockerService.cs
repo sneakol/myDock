@@ -9,6 +9,7 @@ namespace MyDock.Core.Docker;
 public sealed class DockerService : IDockerService
 {
     public const string DefaultEndpoint = "unix:///var/run/docker.sock";
+    private const string OldDaemonMessage = "This Docker daemon is too old to report disk usage (API 1.52 or newer is needed).";
     private const string ComposeProjectLabel = "com.docker.compose.project";
 
     private readonly DockerClient _client;
@@ -106,6 +107,20 @@ public sealed class DockerService : IDockerService
             .Select(ToImageInfo)
             .ToList());
 
+    public Task<IReadOnlyList<DockerVolume>> ListVolumesAsync(CancellationToken ct) =>
+        RunAsync<IReadOnlyList<DockerVolume>>(async () =>
+        {
+            var usage = await _client.System
+                .GetDataUsageInfoAsync(new SytemDataUsageInfoParameters { Verbose = true, Type = ["volume"] }, ct).ConfigureAwait(false);
+            if (usage.VolumeUsage is null)
+                throw new DockerOperationException(OldDaemonMessage, new NotSupportedException());
+
+            return (usage.VolumeUsage.Items ?? []).Select(ToVolumeInfo).ToList();
+        });
+
+    public Task RemoveVolumeAsync(string name, CancellationToken ct) =>
+        RunAsync(() => _client.Volumes.RemoveAsync(name, false, ct));
+
     public Task<long> PruneImagesAsync(CancellationToken ct) =>
         RunAsync(async () => (long)(await _client.Images.PruneImagesAsync(new ImagesPruneParameters(), ct).ConfigureAwait(false)).SpaceReclaimed);
 
@@ -141,7 +156,7 @@ public sealed class DockerService : IDockerService
     {
         // Older daemons answer with another shape, which arrives here as all nulls.
         if (r.ImageUsage is null && r.ContainerUsage is null && r.VolumeUsage is null && r.BuildCacheUsage is null)
-            throw new DockerOperationException("This Docker daemon is too old to report disk usage (API 1.52 or newer is needed).", new NotSupportedException());
+            throw new DockerOperationException(OldDaemonMessage, new NotSupportedException());
 
         return new DiskUsage(
             Line(r.ImageUsage?.TotalCount, r.ImageUsage?.TotalSize, r.ImageUsage?.Reclaimable),
@@ -150,7 +165,9 @@ public sealed class DockerService : IDockerService
             Line(r.BuildCacheUsage?.TotalCount, r.BuildCacheUsage?.TotalSize, r.BuildCacheUsage?.Reclaimable));
     }
 
-    // Docker reports -1 for sizes it could not work out.
+    internal static DockerVolume ToVolumeInfo(Volume v) =>
+        new(v.Name ?? "", v.Driver ?? "", Math.Max(0, v.UsageData?.Size ?? 0), v.UsageData?.RefCount ?? -1);
+
     internal static ImageInfo ToImageInfo(ImagesListResponse i) => new(
         i.ID ?? "",
         (i.RepoTags ?? []).Where(t => t != "<none>:<none>").ToList(),
@@ -158,6 +175,7 @@ public sealed class DockerService : IDockerService
         new DateTimeOffset(DateTime.SpecifyKind(i.Created, DateTimeKind.Utc)),
         i.Containers);
 
+    // Docker reports -1 for sizes it could not work out.
     private static UsageLine Line(long? count, long? size, long? reclaimable) =>
         new(Math.Max(0, count ?? 0), Math.Max(0, size ?? 0), Math.Max(0, reclaimable ?? 0));
 

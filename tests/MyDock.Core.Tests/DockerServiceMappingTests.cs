@@ -171,6 +171,20 @@ public sealed class DockerServiceMappingTests
     }
 
     [Fact]
+    public void Maps_a_volume_with_unknown_usage_and_tells_anonymous_from_named()
+    {
+        var known = DockerService.ToVolumeInfo(new Volume { Name = "db-data", Driver = "local", UsageData = new UsageData { Size = 100, RefCount = 2 } });
+        var unknown = DockerService.ToVolumeInfo(new Volume { Name = new string('a', 64), UsageData = new UsageData { Size = -1, RefCount = -1 } });
+
+        Assert.Equal(new DockerVolume("db-data", "local", 100, 2), known);
+        Assert.False(known.IsAnonymous);
+        Assert.Equal(0, unknown.Size);
+        Assert.Equal(-1, unknown.RefCount);
+        Assert.True(unknown.IsAnonymous);
+        Assert.False(new DockerVolume(new string('g', 64), "", 0, 0).IsAnonymous);
+    }
+
+    [Fact]
     public void Disk_usage_in_an_unknown_shape_is_an_error() =>
         Assert.Throws<DockerOperationException>(() => DockerService.ToDiskUsage(new SystemDataUsageInfoResponse()));
 

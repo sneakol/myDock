@@ -41,6 +41,12 @@ public interface IDockerService : IDisposable
     /// <summary>Lists the images, with how many containers use each.</summary>
     Task<IReadOnlyList<ImageInfo>> ListImagesAsync(CancellationToken ct);
 
+    /// <summary>Lists the volumes with their size and how many containers mount them; needs API 1.52 or newer.</summary>
+    Task<IReadOnlyList<DockerVolume>> ListVolumesAsync(CancellationToken ct);
+
+    /// <summary>Removes a volume and its data; the daemon refuses one that a container still mounts.</summary>
+    Task RemoveVolumeAsync(string name, CancellationToken ct);
+
     /// <summary>Removes dangling (untagged, unused) images; returns the bytes freed.</summary>
     Task<long> PruneImagesAsync(CancellationToken ct);
 

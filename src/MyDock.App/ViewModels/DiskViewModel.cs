@@ -6,6 +6,13 @@ using MyDock.Core.Monitoring;
 
 namespace MyDock.App.ViewModels;
 
+public enum DiskTab
+{
+    Overview,
+    Images,
+    Volumes,
+}
+
 public sealed record DiskRow(string Name, string Count, string Size, string Reclaimable);
 
 /// <summary>What <c>docker system df</c> reports, with the prunes that are safe to offer.</summary>
@@ -15,7 +22,11 @@ public sealed partial class DiskViewModel : ObservableObject
 
     [ObservableProperty] private IReadOnlyList<DiskRow> _rows = [];
     [ObservableProperty] private IReadOnlyList<ImageRowViewModel> _images = [];
-    [ObservableProperty] private bool _showImages;
+    [ObservableProperty] private IReadOnlyList<VolumeRowViewModel> _volumes = [];
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsOverview), nameof(IsImages), nameof(IsVolumes))]
+    private DiskTab _tab;
     [ObservableProperty] private bool _isBusy;
     [ObservableProperty] private string? _error;
     [ObservableProperty] private string? _result;
@@ -26,22 +37,39 @@ public sealed partial class DiskViewModel : ObservableObject
         _ = RefreshAsync();
     }
 
-    [RelayCommand]
-    private Task RefreshAsync() => GuardAsync(ShowImages ? LoadImagesAsync : LoadAsync);
+    public bool IsOverview => Tab == DiskTab.Overview;
+
+    public bool IsImages => Tab == DiskTab.Images;
+
+    public bool IsVolumes => Tab == DiskTab.Volumes;
 
     [RelayCommand]
-    private Task ShowOverviewAsync()
+    private Task RefreshAsync() => GuardAsync(Tab switch
     {
-        ShowImages = false;
+        DiskTab.Images => LoadImagesAsync,
+        DiskTab.Volumes => LoadVolumesAsync,
+        _ => LoadAsync,
+    });
+
+    [RelayCommand]
+    private Task SelectTabAsync(DiskTab tab)
+    {
+        Tab = tab;
         return RefreshAsync();
     }
 
-    [RelayCommand]
-    private Task ShowImagesTabAsync()
+    // Deleting a volume deletes its data, and the daemon refuses one that a container still mounts.
+    private Task DeleteVolumeAsync(VolumeRowViewModel row) => GuardAsync(async () =>
     {
-        ShowImages = true;
-        return RefreshAsync();
-    }
+        await _monitor.DeleteVolumeAsync(row.Volume);
+        await LoadVolumesAsync();
+    });
+
+    private async Task LoadVolumesAsync() =>
+        Volumes = (await _monitor.ListVolumesAsync())
+            .OrderByDescending(v => v.Size)
+            .Select(v => new VolumeRowViewModel(v, DeleteVolumeAsync))
+            .ToList();
 
     private Task DeleteImageAsync(ImageRowViewModel row) => GuardAsync(async () =>
     {
