@@ -3,6 +3,7 @@ using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using MyDock.App.Services;
+using MyDock.Core.Docker;
 using MyDock.Core.Models;
 using MyDock.Core.Monitoring;
 
@@ -15,6 +16,7 @@ public sealed partial class PanelViewModel : ObservableObject
     private readonly ContainerMonitor _monitor;
     private readonly SettingsStore _store;
     private readonly Settings _settings;
+    private readonly IComposeRunner _runner;
     private readonly Dictionary<string, ContainerViewModel> _byId = [];
     private int _updateQueued;
 
@@ -43,15 +45,19 @@ public sealed partial class PanelViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(SortLabel))]
     private SortMode _sort;
 
-    public PanelViewModel(ContainerMonitor monitor, SettingsStore store, string endpoint)
+    public PanelViewModel(ContainerMonitor monitor, SettingsStore store, IComposeRunner runner, string endpoint)
     {
         _monitor = monitor;
         _store = store;
+        _runner = runner;
         _settings = store.Load();
         _isPinned = _settings.Pinned;
         _isStoppedExpanded = _settings.StoppedExpanded;
         _sort = _settings.Sort;
         Endpoint = endpoint;
+
+        foreach (var path in _settings.ComposeFiles.Where(File.Exists))
+            Files.Add(new ComposeFileViewModel(path, _runner, _settings, _store, RemoveFile));
 
         monitor.Changed += OnMonitorChanged;
         Apply(monitor.Current);
@@ -64,6 +70,8 @@ public sealed partial class PanelViewModel : ObservableObject
     public ObservableCollection<ContainerViewModel> Active { get; } = [];
 
     public ObservableCollection<ContainerViewModel> Stopped { get; } = [];
+
+    public ObservableCollection<ComposeFileViewModel> Files { get; } = [];
 
     public string Endpoint { get; }
 
@@ -152,6 +160,35 @@ public sealed partial class PanelViewModel : ObservableObject
     partial void OnIsStoppedExpandedChanged(bool value)
     {
         _settings.StoppedExpanded = value;
+        _store.Save(_settings);
+    }
+
+    /// <summary>Adds a Dockerfile or compose file; returns an error message when it is not one.</summary>
+    public string? AddFile(string path)
+    {
+        if (ComposeFiles.Detect(path) is null)
+            return "Not a Dockerfile or docker-compose file.";
+
+        if (Files.Any(f => f.Path == path))
+            return null;
+
+        Files.Add(new ComposeFileViewModel(path, _runner, _settings, _store, RemoveFile));
+        _settings.ComposeFiles = Files.Select(f => f.Path).ToList();
+        _store.Save(_settings);
+        return null;
+    }
+
+    public void RefreshFiles()
+    {
+        foreach (var file in Files)
+            file.Refresh();
+    }
+
+    private void RemoveFile(ComposeFileViewModel file)
+    {
+        Files.Remove(file);
+        _settings.ComposeFiles = Files.Select(f => f.Path).ToList();
+        _settings.EnvChoice.Remove(file.Path);
         _store.Save(_settings);
     }
 

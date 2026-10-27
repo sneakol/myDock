@@ -110,22 +110,26 @@
       <!-- Header: also the handle to drag the panel around. -->
       <Border x:Name="Header" Background="Transparent" Padding="14,8,8,8"
               BorderBrush="{DynamicResource Divider}" BorderThickness="0,0,0,1">
-        <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto">
+        <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto">
           <TextBlock Classes="title" Text="myDock" VerticalAlignment="Center" />
           <TextBlock Grid.Column="1" Classes="secondary" Text="{Binding Summary}"
                      Margin="10,1,0,0" VerticalAlignment="Center" />
-          <Button Grid.Column="2" Classes="icon" Command="{Binding CycleSortCommand}"
+          <Button Grid.Column="2" Classes="icon" Click="OnLoadFile"
+                  ToolTip.Tip="Load a Dockerfile or docker-compose file">
+            <PathIcon Data="{StaticResource IconFile}" />
+          </Button>
+          <Button Grid.Column="3" Classes="icon" Command="{Binding CycleSortCommand}"
                   IsVisible="{Binding IsConnected}"
                   ToolTip.Tip="Change sort: name, CPU, RAM">
             <TextBlock>
               <Run Text="Sort:" /> <Run Text="{Binding SortLabel}" />
             </TextBlock>
           </Button>
-          <ToggleButton Grid.Column="3" Classes="icon" IsChecked="{Binding IsPinned}"
+          <ToggleButton Grid.Column="4" Classes="icon" IsChecked="{Binding IsPinned}"
                         ToolTip.Tip="Keep open when focus is lost">
             <PathIcon Data="{StaticResource IconPin}" />
           </ToggleButton>
-          <Button Grid.Column="4" Classes="icon" Command="{Binding HideCommand}" ToolTip.Tip="Hide">
+          <Button Grid.Column="5" Classes="icon" Command="{Binding HideCommand}" ToolTip.Tip="Hide">
             <PathIcon Data="{StaticResource IconClose}" />
           </Button>
         </Grid>
@@ -163,6 +167,31 @@
 
       <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
         <StackPanel>
+          <TextBlock Classes="error" Margin="14,8,14,0" TextWrapping="Wrap" x:Name="LoadError" IsVisible="False" />
+
+          <ItemsControl ItemsSource="{Binding Files}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate>
+                <StackPanel Margin="14,6,8,6" Spacing="2" IsEnabled="{Binding !IsBusy}">
+                  <Grid ColumnDefinitions="*,Auto,Auto,Auto">
+                    <TextBlock Classes="name" Text="{Binding Name}" VerticalAlignment="Center"
+                               TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Path}" />
+                    <ComboBox Grid.Column="1" ItemsSource="{Binding EnvFiles}" SelectedItem="{Binding SelectedEnv}"
+                              IsVisible="{Binding HasEnvFiles}" MinWidth="90" Margin="6,0" FontSize="11" />
+                    <Button Grid.Column="2" Classes="icon" Command="{Binding RunCommand}" ToolTip.Tip="Run">
+                      <PathIcon Data="{StaticResource IconPlay}" />
+                    </Button>
+                    <Button Grid.Column="3" Classes="icon" Command="{Binding RemoveCommand}" ToolTip.Tip="Remove from list">
+                      <PathIcon Data="{StaticResource IconClose}" />
+                    </Button>
+                  </Grid>
+                  <TextBlock Classes="error" TextWrapping="Wrap" Text="{Binding Error}"
+                             IsVisible="{Binding Error, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                </StackPanel>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+
           <TextBlock Classes="secondary" Margin="14,18" HorizontalAlignment="Center"
                      Text="No running containers" IsVisible="{Binding IsEmpty}" />
 

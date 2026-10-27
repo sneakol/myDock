@@ -43,7 +43,7 @@ public partial class App : Application
         {
             _docker = new DockerService();
             _monitor = new ContainerMonitor(_docker);
-            _viewModel = new PanelViewModel(_monitor, new SettingsStore(), _docker.Endpoint.ToString());
+            _viewModel = new PanelViewModel(_monitor, new SettingsStore(), new ProcessComposeRunner(), _docker.Endpoint.ToString());
             _viewModel.QuitRequested += Quit;
             _panel = new PanelWindow { DataContext = _viewModel };
             _panel.PropertyChanged += OnPanelPropertyChanged;

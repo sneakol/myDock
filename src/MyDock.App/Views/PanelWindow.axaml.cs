@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
+using Avalonia.Platform.Storage;
 using MyDock.App.ViewModels;
 
 namespace MyDock.App.Views;
@@ -18,6 +19,7 @@ public partial class PanelWindow : Window
     private PanelViewModel? _viewModel;
     private DateTime _shownAt;
     private bool _closing;
+    private bool _picking;
 
     public PanelWindow()
     {
@@ -36,6 +38,7 @@ public partial class PanelWindow : Window
     public void Reveal()
     {
         _shownAt = DateTime.UtcNow;
+        _viewModel?.RefreshFiles();
         PlaceOnScreen();
         Show();
         Activate();
@@ -87,6 +90,7 @@ public partial class PanelWindow : Window
         if (change.Property == IsActiveProperty
             && !change.GetNewValue<bool>()
             && IsVisible
+            && !_picking
             && _viewModel is { IsPinned: false }
             && DateTime.UtcNow - _shownAt > BlurGrace)
         {
@@ -118,5 +122,32 @@ public partial class PanelWindow : Window
     {
         if (Clipboard is { } clipboard && _viewModel is { } viewModel)
             await clipboard.SetTextAsync(viewModel.FixCommand);
+    }
+
+    // The native picker takes focus, which would otherwise hide the panel under it.
+    private async void OnLoadFile(object? sender, RoutedEventArgs e)
+    {
+        if (_viewModel is null)
+            return;
+
+        _picking = true;
+        try
+        {
+            var picked = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+            {
+                Title = "Load a Dockerfile or docker-compose file",
+                AllowMultiple = true,
+            });
+
+            var errors = picked.Select(f => f.TryGetLocalPath()).OfType<string>()
+                .Select(_viewModel.AddFile).OfType<string>().Distinct().ToList();
+            LoadError.Text = string.Join('\n', errors);
+            LoadError.IsVisible = errors.Count > 0;
+        }
+        finally
+        {
+            _picking = false;
+            Activate();
+        }
     }
 }

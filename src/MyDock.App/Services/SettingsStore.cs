@@ -15,6 +15,8 @@ public sealed class Settings
     public bool Pinned { get; set; }
     public bool StoppedExpanded { get; set; }
     public SortMode Sort { get; set; }
+    public List<string> ComposeFiles { get; set; } = [];
+    public Dictionary<string, string> EnvChoice { get; set; } = [];
 }
 
 /// <summary>Persists <see cref="Settings"/> as JSON in the user's config directory. Never throws: settings are a convenience.</summary>
