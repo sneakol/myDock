@@ -49,7 +49,11 @@ In the panel:
 - *Sort* cycles through name, CPU and RAM. When sorting by name, containers of the same Compose project are grouped;
 - stopping and restarting ask for a second click to confirm;
 - *Stopped* lists the containers that are not running, which can be started again from there, or deleted with the trash button.
-  Deleting asks whether to remove the image too (only that tag is dropped); the option is disabled while another container uses the image.
+  Deleting asks whether to remove the image too (only that tag is dropped); the option is disabled while another container uses the image;
+- the file button in the header loads a `Dockerfile` or `docker-compose.yml` (also `compose.yaml`, `Dockerfile.dev`, ...) into the *Files* section.
+  The `.env*` files next to it (`.env`, `.env.dev`, ...) are listed in a dropdown beside the play button, which runs the file with the chosen one:
+  `docker compose -f <file> --env-file <env> up -d` for compose, `docker build` then `docker run -d --env-file <env>` for a Dockerfile
+  (image `mydock/<folder>`). The loaded files and the chosen `.env` are remembered. This needs the `docker` CLI in the `PATH`.
 
 CPU follows the `docker stats` convention: 100% is one full core. RAM excludes reclaimable page cache.
 Statistics are only sampled while the panel is open.
@@ -69,7 +73,7 @@ to opt out, set `AVALONIA_TELEMETRY_OPTOUT=1` in the environment.
 
 | Project | Contents |
 |---|---|
-| `src/MyDock.Core` | Docker access (`IDockerService`), statistics calculation, `ContainerMonitor`. No UI dependencies |
+| `src/MyDock.Core` | Docker access (`IDockerService`), Dockerfile/compose runner (`IComposeRunner`), statistics calculation, `ContainerMonitor`. No UI dependencies |
 | `src/MyDock.App` | tray icon, panel, view models |
 | `tests/MyDock.Core.Tests` | Core tests, with a fake Docker service |
 
