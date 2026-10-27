@@ -105,7 +105,7 @@ public sealed partial class PanelViewModel : ObservableObject
             if (_byId.TryGetValue(container.Info.Id, out var existing))
                 existing.Update(container);
             else
-                _byId[container.Info.Id] = new ContainerViewModel(_monitor, container, RequestDelete, ToggleGroup, StopGroupAsync);
+                _byId[container.Info.Id] = new ContainerViewModel(_monitor, container, RequestDelete, ToggleGroup, RunGroupAsync);
         }
 
         foreach (var id in _byId.Keys.Where(id => !seen.Contains(id)).ToList())
@@ -304,8 +304,7 @@ public sealed partial class PanelViewModel : ObservableObject
         Apply(_monitor.Current);
     }
 
-    private Task StopGroupAsync(string project) => Task.WhenAll(
-        Active.Where(c => c.ComposeProject == project).ToList().Select(c => c.StopCommand.ExecuteAsync(null)));
+    private Task RunGroupAsync(string project, ProjectAction action) => _runner.RunProjectAsync(project, action, CancellationToken.None);
 
     /// <summary>Makes <paramref name="target"/> match <paramref name="desired"/> with as few changes as possible, so rows keep their state.</summary>
     private static void Sync(ObservableCollection<ContainerViewModel> target, List<ContainerViewModel> desired)

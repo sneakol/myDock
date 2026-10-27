@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using MyDock.Core.Docker;
 using MyDock.Core.Formatting;
 using MyDock.Core.Models;
 using MyDock.Core.Monitoring;
@@ -22,7 +23,7 @@ public sealed partial class ContainerViewModel : ObservableObject
     private readonly ContainerMonitor _monitor;
     private readonly Action<ContainerViewModel> _requestDelete;
     private readonly Action<string> _toggleGroup;
-    private readonly Func<string, Task> _stopGroup;
+    private readonly Func<string, ProjectAction, Task> _runGroup;
     private readonly Queue<double> _cpuSamples = new(HistoryLength);
     private ContainerStats? _lastStats;
 
@@ -42,6 +43,8 @@ public sealed partial class ContainerViewModel : ObservableObject
     [ObservableProperty] private string? _groupHeader;
     [ObservableProperty] private bool _isGroupCollapsed;
     [ObservableProperty] private int _groupCount;
+    [ObservableProperty] private bool _isGroupBusy;
+    [ObservableProperty] private string? _groupError;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsComposeHeader), nameof(IsPlainHeader))]
@@ -52,12 +55,12 @@ public sealed partial class ContainerViewModel : ObservableObject
         ContainerSnapshot snapshot,
         Action<ContainerViewModel> requestDelete,
         Action<string> toggleGroup,
-        Func<string, Task> stopGroup)
+        Func<string, ProjectAction, Task> runGroup)
     {
         _monitor = monitor;
         _requestDelete = requestDelete;
         _toggleGroup = toggleGroup;
-        _stopGroup = stopGroup;
+        _runGroup = runGroup;
         Id = snapshot.Info.Id;
         Update(snapshot);
     }
@@ -140,7 +143,23 @@ public sealed partial class ContainerViewModel : ObservableObject
     private void ToggleGroup() => _toggleGroup(ComposeProject!);
 
     [RelayCommand]
-    private Task StopGroupAsync() => _stopGroup(ComposeProject!);
+    private async Task GroupActionAsync(ProjectAction action)
+    {
+        GroupError = null;
+        IsGroupBusy = true;
+        try
+        {
+            await _runGroup(ComposeProject!, action);
+        }
+        catch (Exception ex)
+        {
+            GroupError = ex.Message;
+        }
+        finally
+        {
+            IsGroupBusy = false;
+        }
+    }
 
     private async Task RunAsync(Func<string, CancellationToken, Task> action)
     {

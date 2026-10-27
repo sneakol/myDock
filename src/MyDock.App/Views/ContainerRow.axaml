@@ -3,6 +3,7 @@
              xmlns:vm="using:MyDock.App.ViewModels"
              xmlns:c="using:MyDock.App.Controls"
              xmlns:v="using:MyDock.App.Views"
+             xmlns:core="using:MyDock.Core.Docker"
              x:Class="MyDock.App.Views.ContainerRow"
              x:DataType="vm:ContainerViewModel">
   <StackPanel>
@@ -24,14 +25,37 @@
                      Text="{Binding GroupCount, StringFormat='· {0}'}" />
         </StackPanel>
       </Button>
-      <c:ConfirmButton Grid.Column="1" Classes="icon confirm" Command="{Binding StopGroupCommand}"
-                       IsVisible="{Binding IsActive}" ToolTip.Tip="Stop whole compose">
-        <Panel>
-          <PathIcon Data="{StaticResource IconStop}" IsVisible="{Binding !$parent[c:ConfirmButton].IsArmed}" />
-          <TextBlock Text="Stop all?" IsVisible="{Binding $parent[c:ConfirmButton].IsArmed}" />
-        </Panel>
-      </c:ConfirmButton>
+      <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="2" IsEnabled="{Binding !IsGroupBusy}">
+        <c:ConfirmButton Classes="icon confirm" Command="{Binding GroupActionCommand}" CommandParameter="{x:Static core:ProjectAction.Restart}"
+                         IsVisible="{Binding IsActive}" ToolTip.Tip="Restart whole compose">
+          <Panel>
+            <PathIcon Data="{StaticResource IconRestart}" IsVisible="{Binding !$parent[c:ConfirmButton].IsArmed}" />
+            <TextBlock Text="Restart all?" IsVisible="{Binding $parent[c:ConfirmButton].IsArmed}" />
+          </Panel>
+        </c:ConfirmButton>
+        <c:ConfirmButton Classes="icon confirm" Command="{Binding GroupActionCommand}" CommandParameter="{x:Static core:ProjectAction.Stop}"
+                         IsVisible="{Binding IsActive}" ToolTip.Tip="Stop whole compose">
+          <Panel>
+            <PathIcon Data="{StaticResource IconStop}" IsVisible="{Binding !$parent[c:ConfirmButton].IsArmed}" />
+            <TextBlock Text="Stop all?" IsVisible="{Binding $parent[c:ConfirmButton].IsArmed}" />
+          </Panel>
+        </c:ConfirmButton>
+        <Button Classes="icon" Command="{Binding GroupActionCommand}" CommandParameter="{x:Static core:ProjectAction.Start}"
+                IsVisible="{Binding !IsActive}" ToolTip.Tip="Start whole compose">
+          <PathIcon Data="{StaticResource IconPlay}" />
+        </Button>
+        <c:ConfirmButton Classes="icon confirm" Command="{Binding GroupActionCommand}" CommandParameter="{x:Static core:ProjectAction.Remove}"
+                         IsVisible="{Binding !IsActive}" ToolTip.Tip="Delete all containers of the compose">
+          <Panel>
+            <PathIcon Data="{StaticResource IconTrash}" IsVisible="{Binding !$parent[c:ConfirmButton].IsArmed}" />
+            <TextBlock Text="Delete all?" IsVisible="{Binding $parent[c:ConfirmButton].IsArmed}" />
+          </Panel>
+        </c:ConfirmButton>
+      </StackPanel>
     </Grid>
+    <ProgressBar Classes="busy" Margin="14,4,10,0" IsIndeterminate="True" IsVisible="{Binding IsGroupBusy}" />
+    <TextBlock Classes="error" Margin="14,4,10,0" Text="{Binding GroupError}" TextWrapping="Wrap"
+               IsVisible="{Binding GroupError, Converter={x:Static ObjectConverters.IsNotNull}}" />
 
     <StackPanel Margin="14,8,10,10" Spacing="7" IsVisible="{Binding !IsGroupCollapsed}">
       <Grid ColumnDefinitions="Auto,*,Auto" ToolTip.Tip="{Binding Details}">

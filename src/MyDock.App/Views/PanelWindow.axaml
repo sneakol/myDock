@@ -174,8 +174,11 @@
               <DataTemplate>
                 <StackPanel Margin="14,6,8,6" Spacing="2" IsEnabled="{Binding !IsBusy}">
                   <Grid ColumnDefinitions="*,Auto,Auto,Auto">
-                    <TextBlock Classes="name" Text="{Binding Name}" VerticalAlignment="Center"
-                               TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Path}" />
+                    <StackPanel VerticalAlignment="Center" ToolTip.Tip="{Binding Path}">
+                      <TextBlock Classes="name" Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                      <TextBlock Classes="secondary" Text="{Binding ProjectName, StringFormat='Project: {0}'}"
+                                 IsVisible="{Binding HasProject}" TextTrimming="CharacterEllipsis" />
+                    </StackPanel>
                     <ComboBox Grid.Column="1" ItemsSource="{Binding EnvFiles}" SelectedItem="{Binding SelectedEnv}"
                               IsVisible="{Binding HasEnvFiles}" MinWidth="90" Margin="6,0" FontSize="11" />
                     <Button Grid.Column="2" Classes="icon" Command="{Binding RunCommand}" ToolTip.Tip="Run">

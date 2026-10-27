@@ -11,14 +11,18 @@ public sealed class ProcessComposeRunner : IComposeRunner
             await RunDockerAsync(args, Path.GetDirectoryName(Path.GetFullPath(path))!, ct);
     }
 
-    private static async Task RunDockerAsync(IReadOnlyList<string> args, string workingDirectory, CancellationToken ct)
+    public Task RunProjectAsync(string project, ProjectAction action, CancellationToken ct) =>
+        RunDockerAsync(ComposeFiles.ProjectCommand(project, action), null, ct);
+
+    private static async Task RunDockerAsync(IReadOnlyList<string> args, string? workingDirectory, CancellationToken ct)
     {
         var info = new ProcessStartInfo("docker")
         {
-            WorkingDirectory = workingDirectory,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
         };
+        if (workingDirectory is not null)
+            info.WorkingDirectory = workingDirectory;
         foreach (var arg in args)
             info.ArgumentList.Add(arg);
 

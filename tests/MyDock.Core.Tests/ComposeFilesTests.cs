@@ -58,4 +58,48 @@ public class ComposeFilesTests
     [Fact]
     public void Commands_rejects_unknown_files() =>
         Assert.Throws<ArgumentException>(() => ComposeFiles.Commands("/p/notes.txt", null));
+
+    [Theory]
+    [InlineData(ProjectAction.Start, "start")]
+    [InlineData(ProjectAction.Stop, "stop")]
+    [InlineData(ProjectAction.Restart, "restart")]
+    public void ProjectCommand_targets_the_project_by_name(ProjectAction action, string verb) =>
+        Assert.Equal(["compose", "-p", "shop", verb], ComposeFiles.ProjectCommand("shop", action));
+
+    [Fact]
+    public void ProjectCommand_remove_stops_and_deletes_containers_only() =>
+        Assert.Equal(["compose", "-p", "shop", "rm", "-f", "-s"], ComposeFiles.ProjectCommand("shop", ProjectAction.Remove));
+
+    [Fact]
+    public void ProjectName_follows_compose_precedence()
+    {
+        var dir = Directory.CreateTempSubdirectory("My App.").FullName;
+        try
+        {
+            var file = Path.Combine(dir, "docker-compose.yml");
+            var env = Path.Combine(dir, ".env");
+            var folder = new string(Path.GetFileName(dir).ToLowerInvariant().Where(c => char.IsAsciiLetterOrDigit(c) || c is '_' or '-').ToArray());
+
+            File.WriteAllText(file, "services:\n  web:\n    name: nested\n");
+            Assert.Equal(folder, ComposeFiles.ProjectName(file, null));
+
+            File.WriteAllText(file, "name: \"shop\"  # comment\nservices: {}\n");
+            Assert.Equal("shop", ComposeFiles.ProjectName(file, null));
+
+            File.WriteAllText(env, "A=1\nCOMPOSE_PROJECT_NAME=fromenv\n");
+            Assert.Equal("fromenv", ComposeFiles.ProjectName(file, env));
+
+            File.WriteAllText(file, "name: ${NAME}\n");
+            File.WriteAllText(env, "A=1\n");
+            Assert.Equal(folder, ComposeFiles.ProjectName(file, env));
+        }
+        finally
+        {
+            Directory.Delete(dir, true);
+        }
+    }
+
+    [Fact]
+    public void ProjectName_is_null_for_a_dockerfile() =>
+        Assert.Null(ComposeFiles.ProjectName("/p/Dockerfile", null));
 }

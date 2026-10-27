@@ -14,7 +14,9 @@ public sealed partial class ComposeFileViewModel : ObservableObject
     private readonly Action<ComposeFileViewModel> _remove;
 
     [ObservableProperty] private IReadOnlyList<string> _envFiles = [];
-    [ObservableProperty] private string? _selectedEnv;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ProjectName), nameof(HasProject))]
+    private string? _selectedEnv;
     [ObservableProperty] private bool _isBusy;
     [ObservableProperty] private string? _error;
 
@@ -32,6 +34,12 @@ public sealed partial class ComposeFileViewModel : ObservableObject
 
     public string Name => System.IO.Path.GetFileName(System.IO.Path.GetDirectoryName(Path)) + "/" + System.IO.Path.GetFileName(Path);
 
+    public string? ProjectName => ComposeFiles.ProjectName(Path, EnvPath);
+
+    public bool HasProject => ProjectName is not null;
+
+    private string? EnvPath => SelectedEnv is null ? null : System.IO.Path.Combine(System.IO.Path.GetDirectoryName(Path)!, SelectedEnv);
+
     public bool HasEnvFiles => EnvFiles.Count > 0;
 
     /// <summary>Rescans the folder, keeping the remembered choice if that file still exists.</summary>
@@ -39,6 +47,8 @@ public sealed partial class ComposeFileViewModel : ObservableObject
     {
         EnvFiles = ComposeFiles.FindEnvFiles(Path).Select(System.IO.Path.GetFileName).ToList()!;
         OnPropertyChanged(nameof(HasEnvFiles));
+        OnPropertyChanged(nameof(ProjectName));
+        OnPropertyChanged(nameof(HasProject));
         SelectedEnv = _settings.EnvChoice.TryGetValue(Path, out var saved) && EnvFiles.Contains(saved) ? saved : EnvFiles.FirstOrDefault();
     }
 
@@ -58,8 +68,7 @@ public sealed partial class ComposeFileViewModel : ObservableObject
         IsBusy = true;
         try
         {
-            var env = SelectedEnv is null ? null : System.IO.Path.Combine(System.IO.Path.GetDirectoryName(Path)!, SelectedEnv);
-            await _runner.RunAsync(Path, env, CancellationToken.None);
+            await _runner.RunAsync(Path, EnvPath, CancellationToken.None);
         }
         catch (Exception ex)
         {
