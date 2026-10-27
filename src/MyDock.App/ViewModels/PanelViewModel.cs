@@ -43,6 +43,10 @@ public sealed partial class PanelViewModel : ObservableObject
 
     [ObservableProperty] private bool _noMatches;
     [ObservableProperty] private bool _isShowingSettings;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsShowingOutput))]
+    private OutputViewModel? _output;
     [ObservableProperty] private bool _startAtLogin = Autostart.IsEnabled;
 
     [ObservableProperty]
@@ -75,7 +79,7 @@ public sealed partial class PanelViewModel : ObservableObject
         Preferences = new SettingsViewModel(_settings, _store, () => Apply(_monitor.Current));
 
         foreach (var path in _settings.ComposeFiles.Where(File.Exists))
-            Files.Add(new ComposeFileViewModel(path, _runner, _settings, _store, RemoveFile));
+            Files.Add(new ComposeFileViewModel(path, _runner, _settings, _store, RemoveFile, RunWithOutputAsync));
 
         monitor.Changed += OnMonitorChanged;
         Apply(monitor.Current);
@@ -115,6 +119,8 @@ public sealed partial class PanelViewModel : ObservableObject
     public bool ShowStopped => IsStoppedExpanded || IsFiltering;
 
     public bool IsDeleting => PendingDelete is not null;
+
+    public bool IsShowingOutput => Output is not null;
 
     public bool IsShowingLogs => Logs is not null;
 
@@ -209,7 +215,7 @@ public sealed partial class PanelViewModel : ObservableObject
         if (Files.Any(f => f.Path == path))
             return null;
 
-        var file = new ComposeFileViewModel(path, _runner, _settings, _store, RemoveFile);
+        var file = new ComposeFileViewModel(path, _runner, _settings, _store, RemoveFile, RunWithOutputAsync);
         file.Track(_byId.Values);
         Files.Add(file);
         _settings.ComposeFiles = Files.Select(f => f.Path).ToList();
@@ -310,6 +316,22 @@ public sealed partial class PanelViewModel : ObservableObject
         _settings.Sort = value;
         _store.Save(_settings);
         Apply(_monitor.Current);
+    }
+
+    /// <summary>Shows the output of a long docker command in an overlay; it closes by itself on success and stays up to be read on failure.</summary>
+    private async Task RunWithOutputAsync(string title, Func<Action<string>, CancellationToken, Task> run)
+    {
+        var output = new OutputViewModel(title);
+        Output = output;
+        if (await output.RunAsync(run))
+            Output = null;
+    }
+
+    [RelayCommand]
+    public void CloseOutput()
+    {
+        if (Output is { IsFinished: true })
+            Output = null;
     }
 
     [RelayCommand]

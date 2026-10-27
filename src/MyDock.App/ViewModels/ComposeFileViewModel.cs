@@ -12,6 +12,7 @@ public sealed partial class ComposeFileViewModel : ObservableObject
     private readonly Settings _settings;
     private readonly SettingsStore _store;
     private readonly Action<ComposeFileViewModel> _remove;
+    private readonly Func<string, Func<Action<string>, CancellationToken, Task>, Task> _showOutput;
 
     [ObservableProperty] private IReadOnlyList<string> _envFiles = [];
     [ObservableProperty] private string? _selectedEnv;
@@ -22,13 +23,15 @@ public sealed partial class ComposeFileViewModel : ObservableObject
     [ObservableProperty] private bool _isBusy;
     [ObservableProperty] private string? _error;
 
-    public ComposeFileViewModel(string path, IComposeRunner runner, Settings settings, SettingsStore store, Action<ComposeFileViewModel> remove)
+    public ComposeFileViewModel(string path, IComposeRunner runner, Settings settings, SettingsStore store, Action<ComposeFileViewModel> remove,
+        Func<string, Func<Action<string>, CancellationToken, Task>, Task> showOutput)
     {
         Path = path;
         _runner = runner;
         _settings = settings;
         _store = store;
         _remove = remove;
+        _showOutput = showOutput;
         Refresh();
     }
 
@@ -68,10 +71,12 @@ public sealed partial class ComposeFileViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private Task RunAsync() => GuardAsync(() => _runner.RunAsync(Path, EnvPath, CancellationToken.None));
+    private Task RunAsync() =>
+        GuardAsync(() => _showOutput($"Run {Name}", (output, ct) => _runner.RunAsync(Path, EnvPath, ct, output: output)));
 
     [RelayCommand]
-    private Task RecreateAsync() => GuardAsync(() => _runner.RunAsync(Path, EnvPath, CancellationToken.None, recreate: true));
+    private Task RecreateAsync() =>
+        GuardAsync(() => _showOutput($"Recreate {Name}", (output, ct) => _runner.RunAsync(Path, EnvPath, ct, recreate: true, output: output)));
 
     [RelayCommand]
     private Task StopAsync() => GuardAsync(() => _runner.RunProjectAsync(ProjectName!, ProjectAction.Stop, CancellationToken.None));

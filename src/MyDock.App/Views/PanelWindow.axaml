@@ -275,6 +275,11 @@
         <v:LogView x:Name="PanelLogs" DataContext="{Binding Logs}" />
       </Panel>
 
+      <!-- Output of a build or compose run: the overlay closes by itself when it succeeds. -->
+      <Panel Grid.RowSpan="4" IsVisible="{Binding IsShowingOutput}">
+        <v:OutputView x:Name="PanelOutput" DataContext="{Binding Output}" />
+      </Panel>
+
       <!-- Settings: an overlay like the logs. Changes apply and save as they are made. -->
       <Border Grid.RowSpan="4" Background="{DynamicResource PanelBackground}" IsVisible="{Binding IsShowingSettings}">
         <Grid RowDefinitions="Auto,*">

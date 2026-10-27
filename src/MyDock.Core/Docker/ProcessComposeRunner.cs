@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Text;
 
 namespace MyDock.Core.Docker;
 
@@ -9,16 +10,17 @@ public sealed class ProcessComposeRunner : IComposeRunner
     private static readonly TimeSpan BuildTimeout = TimeSpan.FromMinutes(20);
     private static readonly TimeSpan ProjectTimeout = TimeSpan.FromMinutes(5);
 
-    public async Task RunAsync(string path, string? envFile, CancellationToken ct, bool recreate = false)
+    public async Task RunAsync(string path, string? envFile, CancellationToken ct, bool recreate = false, Action<string>? output = null)
     {
         foreach (var args in ComposeFiles.Commands(path, envFile, recreate))
-            await RunDockerAsync(args, Path.GetDirectoryName(Path.GetFullPath(path))!, BuildTimeout, ct);
+            await RunDockerAsync(args, Path.GetDirectoryName(Path.GetFullPath(path))!, BuildTimeout, ct, output);
     }
 
     public Task RunProjectAsync(string project, ProjectAction action, CancellationToken ct) =>
         RunDockerAsync(ComposeFiles.ProjectCommand(project, action), null, ProjectTimeout, ct);
 
-    private static async Task RunDockerAsync(IReadOnlyList<string> args, string? workingDirectory, TimeSpan timeout, CancellationToken ct)
+    private static async Task RunDockerAsync(
+        IReadOnlyList<string> args, string? workingDirectory, TimeSpan timeout, CancellationToken ct, Action<string>? output = null)
     {
         var info = new ProcessStartInfo("docker")
         {
@@ -30,15 +32,16 @@ public sealed class ProcessComposeRunner : IComposeRunner
         foreach (var arg in args)
             info.ArgumentList.Add(arg);
 
+        output?.Invoke($"$ docker {string.Join(' ', args)}\n");
         using var limit = CancellationTokenSource.CreateLinkedTokenSource(ct);
         limit.CancelAfter(timeout);
         Process? process = null;
         try
         {
             process = Process.Start(info)!;
-            var stderr = process.StandardError.ReadToEndAsync(limit.Token);
-            // stdout is drained so the child never blocks on a full pipe.
-            var stdout = process.StandardOutput.ReadToEndAsync(limit.Token);
+            // Both pipes are always drained so the child never blocks on a full one; only stderr is kept, for the error message.
+            var stderr = PumpAsync(process.StandardError, output, keep: true, limit.Token);
+            var stdout = PumpAsync(process.StandardOutput, output, keep: false, limit.Token);
             await process.WaitForExitAsync(limit.Token);
             await stdout;
             if (process.ExitCode != 0)
@@ -62,6 +65,19 @@ public sealed class ProcessComposeRunner : IComposeRunner
         {
             process?.Dispose();
         }
+    }
+
+    private static async Task<string> PumpAsync(StreamReader reader, Action<string>? output, bool keep, CancellationToken ct)
+    {
+        var text = new StringBuilder();
+        while (await reader.ReadLineAsync(ct).ConfigureAwait(false) is { } line)
+        {
+            output?.Invoke(line + "\n");
+            if (keep)
+                text.AppendLine(line);
+        }
+
+        return text.ToString();
     }
 
     private static void Kill(Process? process)

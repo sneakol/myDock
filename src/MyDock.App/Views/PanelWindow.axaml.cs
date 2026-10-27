@@ -26,6 +26,7 @@ public partial class PanelWindow : Window
         InitializeComponent();
         Header.PointerPressed += OnHeaderPointerPressed;
         PanelLogs.CloseRequested += () => _viewModel?.CloseLogs();
+        PanelOutput.CloseRequested += () => _viewModel?.CloseOutput();
         PanelLogs.PopOutRequested += () => _viewModel?.PopOutLogsCommand.Execute(null);
     }
 
@@ -89,7 +90,9 @@ public partial class PanelWindow : Window
         if (e.Key != Key.Escape)
             return;
 
-        if (_viewModel is { IsShowingSettings: true })
+        if (_viewModel is { IsShowingOutput: true })
+            _viewModel.CloseOutput();
+        else if (_viewModel is { IsShowingSettings: true })
             _viewModel.CloseSettings();
         else if (_viewModel is { IsDeleting: true })
             _viewModel.CancelDeleteCommand.Execute(null);
