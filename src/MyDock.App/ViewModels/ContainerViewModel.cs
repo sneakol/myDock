@@ -20,6 +20,7 @@ public sealed partial class ContainerViewModel : ObservableObject
     private const string NoValue = "–";
 
     private readonly ContainerMonitor _monitor;
+    private readonly Action<ContainerViewModel> _requestDelete;
     private readonly Queue<double> _cpuSamples = new(HistoryLength);
     private ContainerStats? _lastStats;
 
@@ -39,14 +40,19 @@ public sealed partial class ContainerViewModel : ObservableObject
     [ObservableProperty] private string? _groupHeader;
     [ObservableProperty] private bool _showGroupHeader;
 
-    public ContainerViewModel(ContainerMonitor monitor, ContainerSnapshot snapshot)
+    public ContainerViewModel(ContainerMonitor monitor, ContainerSnapshot snapshot, Action<ContainerViewModel> requestDelete)
     {
         _monitor = monitor;
+        _requestDelete = requestDelete;
         Id = snapshot.Info.Id;
         Update(snapshot);
     }
 
     public string Id { get; }
+
+    public string Image { get; private set; } = "";
+
+    public string ImageId { get; private set; } = "";
 
     public string? ComposeProject { get; private set; }
 
@@ -59,6 +65,8 @@ public sealed partial class ContainerViewModel : ObservableObject
         var (info, stats) = snapshot;
 
         Name = info.Name;
+        Image = info.Image;
+        ImageId = info.ImageId;
         Subtitle = $"{info.Image} · {info.Status}";
         IsActive = info.IsActive;
         Indicator = IndicatorFor(info);
@@ -106,6 +114,9 @@ public sealed partial class ContainerViewModel : ObservableObject
 
     [RelayCommand]
     private Task RestartAsync() => RunAsync(_monitor.RestartContainerAsync);
+
+    [RelayCommand]
+    private void Delete() => _requestDelete(this);
 
     private async Task RunAsync(Func<string, CancellationToken, Task> action)
     {

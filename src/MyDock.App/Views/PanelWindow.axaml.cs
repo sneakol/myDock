@@ -72,7 +72,12 @@ public partial class PanelWindow : Window
     protected override void OnKeyDown(KeyEventArgs e)
     {
         base.OnKeyDown(e);
-        if (e.Key == Key.Escape)
+        if (e.Key != Key.Escape)
+            return;
+
+        if (_viewModel is { IsDeleting: true })
+            _viewModel.CancelDeleteCommand.Execute(null);
+        else
             Hide();
     }
 

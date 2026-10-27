@@ -6,6 +6,7 @@ public sealed record ContainerInfo(
     string Id,
     string Name,
     string Image,
+    string ImageId,
     ContainerState State,
     HealthState Health,
     string Status,

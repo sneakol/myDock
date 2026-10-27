@@ -20,4 +20,10 @@ public interface IDockerService : IDisposable
     Task StartAsync(string id, CancellationToken ct);
     Task StopAsync(string id, CancellationToken ct);
     Task RestartAsync(string id, CancellationToken ct);
+
+    /// <summary>Removes a stopped container; the daemon refuses a running one.</summary>
+    Task RemoveContainerAsync(string id, CancellationToken ct);
+
+    /// <summary>Removes an image by tag (only that tag is dropped) or by id; the daemon refuses one that a container still uses.</summary>
+    Task RemoveImageAsync(string reference, CancellationToken ct);
 }

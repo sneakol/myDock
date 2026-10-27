@@ -27,8 +27,11 @@ internal sealed class FakeDocker : IDockerService
         }
     }
 
-    public static ContainerInfo Container(string id, ContainerState state = ContainerState.Running, string? name = null) =>
-        new(id, name ?? id, "image:latest", state, HealthState.None, state.ToString(), DateTimeOffset.UnixEpoch, null);
+    /// <param name="imageId">Unique per container unless given, so sharing an image is opt-in.</param>
+    public static ContainerInfo Container(
+        string id, ContainerState state = ContainerState.Running, string? name = null,
+        string image = "image:latest", string? imageId = null) =>
+        new(id, name ?? id, image, imageId ?? "sha256:" + id, state, HealthState.None, state.ToString(), DateTimeOffset.UnixEpoch, null);
 
     public void Set(params ContainerInfo[] containers)
     {
@@ -123,6 +126,10 @@ internal sealed class FakeDocker : IDockerService
     public Task StopAsync(string id, CancellationToken ct) => Record("stop", id);
 
     public Task RestartAsync(string id, CancellationToken ct) => Record("restart", id);
+
+    public Task RemoveContainerAsync(string id, CancellationToken ct) => Record("rm", id);
+
+    public Task RemoveImageAsync(string reference, CancellationToken ct) => Record("rmi", reference);
 
     public void Dispose()
     {

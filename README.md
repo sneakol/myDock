@@ -48,7 +48,8 @@ In the panel:
 - the panel closes by itself when it loses focus; the pin keeps it open. Drag the header to move it;
 - *Sort* cycles through name, CPU and RAM. When sorting by name, containers of the same Compose project are grouped;
 - stopping and restarting ask for a second click to confirm;
-- *Stopped* lists the containers that are not running, which can be started again from there.
+- *Stopped* lists the containers that are not running, which can be started again from there, or deleted with the trash button.
+  Deleting asks whether to remove the image too (only that tag is dropped); the option is disabled while another container uses the image.
 
 CPU follows the `docker stats` convention: 100% is one full core. RAM excludes reclaimable page cache.
 Statistics are only sampled while the panel is open.

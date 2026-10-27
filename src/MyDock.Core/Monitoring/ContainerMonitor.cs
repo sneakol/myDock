@@ -79,6 +79,39 @@ public sealed class ContainerMonitor : IAsyncDisposable
 
     public Task RestartContainerAsync(string id, CancellationToken ct = default) => _docker.RestartAsync(id, ct);
 
+    /// <summary>True when a container other than <paramref name="exceptContainerId"/>, running or not, uses the image.</summary>
+    public bool IsImageShared(string imageId, string exceptContainerId) =>
+        imageId.Length > 0 && Current.Containers.Any(c => c.Info.Id != exceptContainerId && c.Info.ImageId == imageId);
+
+    /// <summary>Removes a container and, when asked, its image, unless another container still uses that image.</summary>
+    public async Task DeleteContainerAsync(string id, bool alsoImage, CancellationToken ct = default)
+    {
+        var info = Current.Containers.FirstOrDefault(c => c.Info.Id == id)?.Info;
+        if (alsoImage && info is null)
+            throw new InvalidOperationException("The container is no longer listed.");
+        if (alsoImage && IsImageShared(info!.ImageId, id))
+            throw new InvalidOperationException("The image is used by other containers.");
+
+        await _docker.RemoveContainerAsync(id, ct).ConfigureAwait(false);
+        if (!alsoImage)
+            return;
+
+        try
+        {
+            await _docker.RemoveImageAsync(ImageReference(info!), ct).ConfigureAwait(false);
+        }
+        catch (DockerOperationException ex)
+        {
+            throw new DockerOperationException($"Container deleted, but the image could not be removed: {ex.Message}", ex);
+        }
+    }
+
+    // When a tag has moved on, the list shows a bare id instead of a name; deleting by name would then fail.
+    private static string ImageReference(ContainerInfo info) =>
+        info.Image.StartsWith("sha256:", StringComparison.Ordinal) || info.ImageId.StartsWith("sha256:" + info.Image, StringComparison.Ordinal)
+            ? info.ImageId
+            : info.Image;
+
     public async ValueTask DisposeAsync()
     {
         _cts.Cancel();

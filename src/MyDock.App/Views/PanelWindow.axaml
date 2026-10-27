@@ -198,6 +198,32 @@
           </StackPanel>
         </StackPanel>
       </ScrollViewer>
+
+      <!-- Delete confirmation: an overlay rather than a window, which would take focus and hide the panel. -->
+      <Border Grid.RowSpan="3" Background="#99000000" IsVisible="{Binding IsDeleting}">
+        <Border Margin="20" Padding="14" VerticalAlignment="Center" CornerRadius="10"
+                Background="{DynamicResource PanelBackground}"
+                BorderBrush="{DynamicResource PanelBorder}" BorderThickness="1">
+          <StackPanel Spacing="8" IsEnabled="{Binding !IsDeleteBusy}">
+            <TextBlock Classes="title" Text="Delete container?" />
+            <TextBlock Text="{Binding PendingDelete.Name}" TextWrapping="Wrap" />
+            <CheckBox IsChecked="{Binding AlsoDeleteImage}" IsEnabled="{Binding !ImageShared}">
+              <TextBlock TextWrapping="Wrap">
+                <Run Text="Also delete image" /> <Run Text="{Binding PendingDelete.Image}" />
+              </TextBlock>
+            </CheckBox>
+            <TextBlock Classes="secondary" TextWrapping="Wrap" IsVisible="{Binding ImageShared}"
+                       Text="The image is used by other containers and will be kept." />
+            <TextBlock Classes="error" TextWrapping="Wrap" Text="{Binding DeleteError}"
+                       IsVisible="{Binding DeleteError, Converter={x:Static ObjectConverters.IsNotNull}}" />
+            <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+              <Button Classes="link" Content="Cancel" Command="{Binding CancelDeleteCommand}" />
+              <Button Classes="link" Content="Delete" Command="{Binding ConfirmDeleteCommand}"
+                      Background="{DynamicResource Danger}" Foreground="White" />
+            </StackPanel>
+          </StackPanel>
+        </Border>
+      </Border>
     </Grid>
   </Border>
 </Window>

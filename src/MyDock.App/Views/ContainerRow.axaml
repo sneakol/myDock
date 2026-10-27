@@ -38,6 +38,10 @@
                   IsVisible="{Binding !IsActive}" ToolTip.Tip="Start">
             <PathIcon Data="{StaticResource IconPlay}" />
           </Button>
+          <Button Classes="icon" Command="{Binding DeleteCommand}"
+                  IsVisible="{Binding !IsActive}" ToolTip.Tip="Delete">
+            <PathIcon Data="{StaticResource IconTrash}" />
+          </Button>
         </StackPanel>
       </Grid>
 

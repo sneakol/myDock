@@ -67,6 +67,12 @@ public sealed class DockerService : IDockerService
     public Task RestartAsync(string id, CancellationToken ct) =>
         RunAsync(() => _client.Containers.RestartContainerAsync(id, new ContainerRestartParameters(), ct));
 
+    public Task RemoveContainerAsync(string id, CancellationToken ct) =>
+        RunAsync(() => _client.Containers.RemoveContainerAsync(id, new ContainerRemoveParameters(), ct));
+
+    public Task RemoveImageAsync(string reference, CancellationToken ct) =>
+        RunAsync(() => _client.Images.DeleteImageAsync(reference, new ImageDeleteParameters(), ct));
+
     public void Dispose() => _client.Dispose();
 
     private static async Task RunAsync(Func<Task> action)
@@ -90,6 +96,7 @@ public sealed class DockerService : IDockerService
             c.ID,
             string.IsNullOrEmpty(name) ? ShortId(c.ID) : name,
             c.Image ?? "",
+            c.ImageID ?? "",
             ParseState(c.State),
             ParseHealth(c.Health?.Status),
             c.Status ?? "",

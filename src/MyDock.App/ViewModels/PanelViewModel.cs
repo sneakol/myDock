@@ -30,6 +30,15 @@ public sealed partial class PanelViewModel : ObservableObject
     [ObservableProperty] private bool _isStoppedExpanded;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsDeleting))]
+    private ContainerViewModel? _pendingDelete;
+
+    [ObservableProperty] private bool _imageShared;
+    [ObservableProperty] private bool _alsoDeleteImage;
+    [ObservableProperty] private bool _isDeleteBusy;
+    [ObservableProperty] private string? _deleteError;
+
+    [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(SortLabel))]
     private SortMode _sort;
 
@@ -65,6 +74,8 @@ public sealed partial class PanelViewModel : ObservableObject
 
     public bool IsPermissionDenied => Connection == ConnectionState.PermissionDenied;
 
+    public bool IsDeleting => PendingDelete is not null;
+
     public string SortLabel => Sort switch
     {
         SortMode.Cpu => "CPU",
@@ -83,7 +94,7 @@ public sealed partial class PanelViewModel : ObservableObject
             if (_byId.TryGetValue(container.Info.Id, out var existing))
                 existing.Update(container);
             else
-                _byId[container.Info.Id] = new ContainerViewModel(_monitor, container);
+                _byId[container.Info.Id] = new ContainerViewModel(_monitor, container, RequestDelete);
         }
 
         foreach (var id in _byId.Keys.Where(id => !seen.Contains(id)).ToList())
@@ -111,6 +122,15 @@ public sealed partial class PanelViewModel : ObservableObject
                 0 => "",
                 var n => $"{n} active",
             };
+
+        // After a failed delete the container may already be gone, and the message is all the user has left.
+        if (PendingDelete is { } pending)
+        {
+            if (!IsDeleteBusy && DeleteError is null && (!_byId.ContainsKey(pending.Id) || pending.IsActive || !IsConnected))
+                CancelDelete();
+            else
+                ImageShared = _monitor.IsImageShared(pending.ImageId, pending.Id);
+        }
     }
 
     /// <summary>Forgets the CPU histories: they have a gap whenever the panel was hidden.</summary>
@@ -130,6 +150,50 @@ public sealed partial class PanelViewModel : ObservableObject
     {
         _settings.StoppedExpanded = value;
         _store.Save(_settings);
+    }
+
+    partial void OnImageSharedChanged(bool value)
+    {
+        if (value)
+            AlsoDeleteImage = false;
+    }
+
+    private void RequestDelete(ContainerViewModel container)
+    {
+        DeleteError = null;
+        AlsoDeleteImage = false;
+        ImageShared = _monitor.IsImageShared(container.ImageId, container.Id);
+        PendingDelete = container;
+    }
+
+    [RelayCommand]
+    private void CancelDelete()
+    {
+        PendingDelete = null;
+        DeleteError = null;
+    }
+
+    [RelayCommand]
+    private async Task ConfirmDeleteAsync()
+    {
+        if (PendingDelete is not { } container)
+            return;
+
+        DeleteError = null;
+        IsDeleteBusy = true;
+        try
+        {
+            await _monitor.DeleteContainerAsync(container.Id, AlsoDeleteImage && !ImageShared);
+            CancelDelete();
+        }
+        catch (Exception ex)
+        {
+            DeleteError = ex.Message;
+        }
+        finally
+        {
+            IsDeleteBusy = false;
+        }
     }
 
     partial void OnSortChanged(SortMode value)

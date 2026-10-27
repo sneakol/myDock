@@ -245,6 +245,50 @@ public sealed class ContainerMonitorTests : IAsyncDisposable
         Assert.Equal(["start a", "stop b", "restart c"], _docker.Actions);
     }
 
+    [Fact]
+    public async Task Deleting_a_container_keeps_its_image_unless_asked()
+    {
+        _docker.Set(FakeDocker.Container("a", ContainerState.Exited));
+        _monitor.Start();
+        await Connected();
+
+        await _monitor.DeleteContainerAsync("a", alsoImage: false);
+        Assert.Equal(["rm a"], _docker.Actions);
+
+        await _monitor.DeleteContainerAsync("a", alsoImage: true);
+        Assert.Equal(["rm a", "rm a", "rmi image:latest"], _docker.Actions);
+    }
+
+    [Fact]
+    public async Task A_shared_image_is_never_deleted()
+    {
+        _docker.Set(
+            FakeDocker.Container("a", ContainerState.Exited, imageId: "sha256:shared"),
+            FakeDocker.Container("b", ContainerState.Exited, imageId: "sha256:shared"),
+            FakeDocker.Container("c", imageId: "sha256:other"));
+        _monitor.Start();
+        await Connected();
+
+        Assert.True(_monitor.IsImageShared("sha256:shared", "a"));
+        Assert.False(_monitor.IsImageShared("sha256:other", "c"));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => _monitor.DeleteContainerAsync("a", alsoImage: true));
+        Assert.Empty(_docker.Actions);
+    }
+
+    [Theory]
+    [InlineData("sha256:abcdef", "sha256:abcdef0123")]
+    [InlineData("abcdef", "sha256:abcdef0123")]
+    public async Task An_image_shown_as_a_bare_id_is_deleted_by_id(string image, string imageId)
+    {
+        _docker.Set(FakeDocker.Container("a", ContainerState.Exited, image: image, imageId: imageId));
+        _monitor.Start();
+        await Connected();
+
+        await _monitor.DeleteContainerAsync("a", alsoImage: true);
+
+        Assert.Equal(["rm a", $"rmi {imageId}"], _docker.Actions);
+    }
+
     [Theory]
     [InlineData("start", true)]
     [InlineData("die", true)]

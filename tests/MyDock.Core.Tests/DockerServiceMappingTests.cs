@@ -94,6 +94,7 @@ public sealed class DockerServiceMappingTests
             ID = "0123456789abcdef",
             Names = ["/shop-db-1"],
             Image = "postgres:17",
+            ImageID = "sha256:abc",
             State = "running",
             Status = "Up 2 hours (healthy)",
             Health = new HealthSummary { Status = "healthy" },
@@ -103,7 +104,7 @@ public sealed class DockerServiceMappingTests
 
         Assert.Equal(
             new ContainerInfo(
-                "0123456789abcdef", "shop-db-1", "postgres:17", ContainerState.Running, HealthState.Healthy,
+                "0123456789abcdef", "shop-db-1", "postgres:17", "sha256:abc", ContainerState.Running, HealthState.Healthy,
                 "Up 2 hours (healthy)", new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero), "shop"),
             info);
         Assert.True(info.IsActive);
