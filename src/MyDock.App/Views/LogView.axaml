@@ -1,5 +1,6 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:loc="using:MyDock.App.Localization"
              xmlns:vm="using:MyDock.App.ViewModels"
              xmlns:v="using:MyDock.App.Views"
              x:Class="MyDock.App.Views.LogView"
@@ -9,15 +10,15 @@
       <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto,Auto" Margin="14,8,6,8">
         <TextBlock Classes="title" Text="{Binding Title}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
         <CheckBox Grid.Column="1" Margin="8,0,0,0" IsChecked="{Binding IsLive}" VerticalAlignment="Center">
-          <TextBlock Classes="secondary" Text="Live" />
+          <TextBlock Classes="secondary" Text="{loc:L Log.Live}" />
         </CheckBox>
-        <Button Grid.Column="2" Classes="link" Content="Refresh" Command="{Binding RefreshCommand}" />
-        <Button Grid.Column="3" Classes="link" Content="Copy" Click="OnCopy" />
-        <Button Grid.Column="4" Classes="icon" Click="OnPopOut" ToolTip.Tip="Open in a window"
+        <Button Grid.Column="2" Classes="link" Content="{loc:L Common.Refresh}" Command="{Binding RefreshCommand}" />
+        <Button Grid.Column="3" Classes="link" Content="{loc:L Common.Copy}" Click="OnCopy" />
+        <Button Grid.Column="4" Classes="icon" Click="OnPopOut" ToolTip.Tip="{loc:L Log.TipPopOut}"
                 IsVisible="{Binding $parent[v:LogView].ShowPopOut}">
           <PathIcon Data="{StaticResource IconExpand}" />
         </Button>
-        <Button Grid.Column="5" Classes="icon" Click="OnClose" ToolTip.Tip="Close">
+        <Button Grid.Column="5" Classes="icon" Click="OnClose" ToolTip.Tip="{loc:L Common.Close}">
           <PathIcon Data="{StaticResource IconClose}" />
         </Button>
       </Grid>

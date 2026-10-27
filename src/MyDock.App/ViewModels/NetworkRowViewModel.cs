@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.Input;
 using MyDock.Core.Models;
+using MyDock.Core.Localization;
 
 namespace MyDock.App.ViewModels;
 
@@ -28,5 +29,5 @@ public sealed class NetworkRowViewModel
 
     public string Subtitle => $"{Network.Driver} · {Network.Scope} · {Network.Created.LocalDateTime:yyyy-MM-dd}";
 
-    public string UsedBy => Network.IsBuiltIn ? "built-in" : _containers > 0 ? $"{_containers} on it" : "unused";
+    public string UsedBy => Network.IsBuiltIn ? Loc.Get("Resources.BuiltIn") : _containers > 0 ? Loc.Get("Resources.OnIt", _containers) : Loc.Get("Resources.Unused");
 }

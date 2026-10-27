@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Text;
+using MyDock.Core.Localization;
 
 namespace MyDock.Core.Docker;
 
@@ -49,12 +50,12 @@ public sealed class ProcessComposeRunner : IComposeRunner
         }
         catch (System.ComponentModel.Win32Exception ex)
         {
-            throw new DockerOperationException("docker CLI not found.", ex);
+            throw new DockerOperationException(Loc.Get("Err.DockerNotFound"), ex);
         }
         catch (OperationCanceledException) when (!ct.IsCancellationRequested)
         {
             Kill(process);
-            throw new DockerOperationException($"docker timed out after {timeout.TotalMinutes:0} min.", new TimeoutException());
+            throw new DockerOperationException(Loc.Get("Err.DockerTimeout", timeout.TotalMinutes.ToString("0")), new TimeoutException());
         }
         catch (OperationCanceledException)
         {
@@ -96,6 +97,6 @@ public sealed class ProcessComposeRunner : IComposeRunner
     private static string Tail(string text)
     {
         var lines = text.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-        return lines.Length == 0 ? "docker failed." : string.Join('\n', lines[^Math.Min(lines.Length, 3)..]);
+        return lines.Length == 0 ? Loc.Get("Err.DockerFailed") : string.Join('\n', lines[^Math.Min(lines.Length, 3)..]);
     }
 }

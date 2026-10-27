@@ -2,6 +2,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using MyDock.App.Services;
 using MyDock.Core.Docker;
+using MyDock.Core.Localization;
 
 namespace MyDock.App.ViewModels;
 
@@ -72,11 +73,11 @@ public sealed partial class ComposeFileViewModel : ObservableObject
 
     [RelayCommand]
     private Task RunAsync() =>
-        GuardAsync(() => _showOutput($"Run {Name}", (output, ct) => _runner.RunAsync(Path, EnvPath, ct, output: output)));
+        GuardAsync(() => _showOutput(Loc.Get("Output.RunTitle", Name), (output, ct) => _runner.RunAsync(Path, EnvPath, ct, output: output)));
 
     [RelayCommand]
     private Task RecreateAsync() =>
-        GuardAsync(() => _showOutput($"Recreate {Name}", (output, ct) => _runner.RunAsync(Path, EnvPath, ct, recreate: true, output: output)));
+        GuardAsync(() => _showOutput(Loc.Get("Output.RecreateTitle", Name), (output, ct) => _runner.RunAsync(Path, EnvPath, ct, recreate: true, output: output)));
 
     [RelayCommand]
     private Task StopAsync() => GuardAsync(() => _runner.RunProjectAsync(ProjectName!, ProjectAction.Stop, CancellationToken.None));

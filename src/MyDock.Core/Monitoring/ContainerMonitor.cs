@@ -1,6 +1,7 @@
 using System.Threading.Channels;
 using MyDock.Core.Docker;
 using MyDock.Core.Models;
+using MyDock.Core.Localization;
 
 namespace MyDock.Core.Monitoring;
 
@@ -120,7 +121,7 @@ public sealed class ContainerMonitor : IAsyncDisposable
     public async Task DeleteImageAsync(ImageInfo image, CancellationToken ct = default)
     {
         if (image.Containers > 0 || Current.Containers.Any(c => c.Info.ImageId == image.Id))
-            throw new InvalidOperationException("The image is used by containers.");
+            throw new InvalidOperationException(Loc.Get("Err.ImageUsed"));
 
         if (image.Tags.Count == 0)
         {
@@ -156,7 +157,7 @@ public sealed class ContainerMonitor : IAsyncDisposable
 
     public Task DeleteNetworkAsync(DockerNetwork network, CancellationToken ct = default) =>
         network.IsBuiltIn
-            ? throw new InvalidOperationException($"{network.Name} is a built-in network and cannot be removed.")
+            ? throw new InvalidOperationException(Loc.Get("Err.BuiltInNetwork", network.Name))
             : _docker.RemoveNetworkAsync(network.Id, ct);
 
     public Task<long> PruneImagesAsync(CancellationToken ct = default) => _docker.PruneImagesAsync(ct);
@@ -172,9 +173,9 @@ public sealed class ContainerMonitor : IAsyncDisposable
     {
         var info = Current.Containers.FirstOrDefault(c => c.Info.Id == id)?.Info;
         if (alsoImage && info is null)
-            throw new InvalidOperationException("The container is no longer listed.");
+            throw new InvalidOperationException(Loc.Get("Err.ContainerGone"));
         if (alsoImage && IsImageShared(info!.ImageId, id))
-            throw new InvalidOperationException("The image is used by other containers.");
+            throw new InvalidOperationException(Loc.Get("Err.ImageUsedOther"));
 
         await _docker.RemoveContainerAsync(id, ct).ConfigureAwait(false);
         if (!alsoImage)
@@ -186,7 +187,7 @@ public sealed class ContainerMonitor : IAsyncDisposable
         }
         catch (DockerOperationException ex)
         {
-            throw new DockerOperationException($"Container deleted, but the image could not be removed: {ex.Message}", ex);
+            throw new DockerOperationException(Loc.Get("Err.ImageNotRemoved", ex.Message), ex);
         }
     }
 

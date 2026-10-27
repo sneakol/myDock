@@ -1,4 +1,5 @@
 using MyDock.Core.Models;
+using MyDock.Core.Localization;
 
 namespace MyDock.App.ViewModels;
 
@@ -9,5 +10,5 @@ public sealed class InspectViewModel(string title, Inspection inspection)
 
     public string Json { get; } = inspection.Json;
 
-    public string UsedBy { get; } = inspection.UsedBy.Count == 0 ? "Used by: no container" : "Used by: " + string.Join(", ", inspection.UsedBy);
+    public string UsedBy { get; } = inspection.UsedBy.Count == 0 ? Loc.Get("Resources.UsedByNone") : Loc.Get("Resources.UsedByList", string.Join(", ", inspection.UsedBy));
 }

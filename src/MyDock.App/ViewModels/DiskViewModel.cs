@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.Input;
 using MyDock.Core.Formatting;
 using MyDock.Core.Models;
 using MyDock.Core.Monitoring;
+using MyDock.Core.Localization;
 
 namespace MyDock.App.ViewModels;
 
@@ -149,14 +150,14 @@ public sealed partial class DiskViewModel : ObservableObject
     [RelayCommand]
     private Task PruneImagesAsync() => GuardAsync(async () =>
     {
-        Result = "Images: freed " + Format.Size((ulong)await _monitor.PruneImagesAsync());
+        Result = Loc.Get("Resources.FreedImages", Format.Size((ulong)await _monitor.PruneImagesAsync()));
         await LoadAsync();
     });
 
     [RelayCommand]
     private Task PruneVolumesAsync() => GuardAsync(async () =>
     {
-        Result = "Volumes: freed " + Format.Size((ulong)await _monitor.PruneVolumesAsync());
+        Result = Loc.Get("Resources.FreedVolumes", Format.Size((ulong)await _monitor.PruneVolumesAsync()));
         await LoadAsync();
     });
 
@@ -165,10 +166,10 @@ public sealed partial class DiskViewModel : ObservableObject
         var usage = await _monitor.GetDiskUsageAsync();
         Rows =
         [
-            Row("Images", usage.Images),
-            Row("Containers", usage.Containers),
-            Row("Volumes", usage.Volumes),
-            Row("Build cache", usage.BuildCache),
+            Row(Loc.Get("Resources.Images"), usage.Images),
+            Row(Loc.Get("Resources.Containers"), usage.Containers),
+            Row(Loc.Get("Resources.Volumes"), usage.Volumes),
+            Row(Loc.Get("Resources.BuildCache"), usage.BuildCache),
         ];
     }
 

@@ -9,6 +9,7 @@ using MyDock.App.Views;
 using MyDock.Core.Docker;
 using MyDock.Core.Models;
 using MyDock.Core.Monitoring;
+using MyDock.Core.Localization;
 
 namespace MyDock.App;
 
@@ -43,6 +44,7 @@ public partial class App : Application
     {
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop && !Design.IsDesignMode)
         {
+            Loc.Use(_store.Load().Language);
             _docker = new DockerService();
             _monitor = new ContainerMonitor(_docker);
             _viewModel = new PanelViewModel(_monitor, _store, new ProcessComposeRunner(), _docker.Endpoint.ToString());
@@ -142,10 +144,10 @@ public partial class App : Application
 
         _tray.ToolTipText = snapshot.Connection switch
         {
-            ConnectionState.PermissionDenied => "myDock: permission denied on the Docker socket",
-            ConnectionState.DaemonUnavailable => "myDock: Docker unreachable",
+            ConnectionState.PermissionDenied => Loc.Get("Tray.Denied"),
+            ConnectionState.DaemonUnavailable => Loc.Get("Tray.Unreachable"),
             ConnectionState.Connecting => "myDock",
-            _ => snapshot.ActiveCount == 1 ? "myDock: 1 active container" : $"myDock: {snapshot.ActiveCount} active containers",
+            _ => snapshot.ActiveCount == 1 ? Loc.Get("Tray.OneActive") : Loc.Get("Tray.ManyActive", snapshot.ActiveCount),
         };
     }
 

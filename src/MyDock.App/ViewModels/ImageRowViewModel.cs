@@ -1,6 +1,7 @@
 using CommunityToolkit.Mvvm.Input;
 using MyDock.Core.Formatting;
 using MyDock.Core.Models;
+using MyDock.Core.Localization;
 
 namespace MyDock.App.ViewModels;
 
@@ -20,14 +21,14 @@ public sealed class ImageRowViewModel
 
     public IAsyncRelayCommand InspectCommand { get; }
 
-    public string Title => Image.Tags.Count > 0 ? Image.Tags[0] : "<untagged>";
+    public string Title => Image.Tags.Count > 0 ? Image.Tags[0] : Loc.Get("Resources.Untagged");
 
     public string Subtitle
     {
         get
         {
             var id = Image.Id.StartsWith("sha256:", StringComparison.Ordinal) ? Image.Id[7..] : Image.Id;
-            var extra = Image.Tags.Count > 1 ? $"+{Image.Tags.Count - 1} more · " : "";
+            var extra = Image.Tags.Count > 1 ? Loc.Get("Resources.MoreTags", Image.Tags.Count - 1) + " · " : "";
             return $"{extra}{id[..Math.Min(12, id.Length)]} · {Image.Created.LocalDateTime:yyyy-MM-dd}";
         }
     }
@@ -36,8 +37,8 @@ public sealed class ImageRowViewModel
 
     public string UsedBy => Image.Containers switch
     {
-        > 0 => $"used by {Image.Containers}",
-        0 => "unused",
+        > 0 => Loc.Get("Resources.UsedBy", Image.Containers),
+        0 => Loc.Get("Resources.Unused"),
         _ => "",
     };
 }

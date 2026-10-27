@@ -1,6 +1,7 @@
 using CommunityToolkit.Mvvm.Input;
 using MyDock.Core.Formatting;
 using MyDock.Core.Models;
+using MyDock.Core.Localization;
 
 namespace MyDock.App.ViewModels;
 
@@ -22,14 +23,14 @@ public sealed class VolumeRowViewModel
 
     public string Title => Volume.IsAnonymous ? Volume.Name[..12] + "…" : Volume.Name;
 
-    public string Subtitle => (Volume.IsAnonymous ? "anonymous" : "named") + " · " + Volume.Driver;
+    public string Subtitle => (Volume.IsAnonymous ? Loc.Get("Resources.Anonymous") : Loc.Get("Resources.Named")) + " · " + Volume.Driver;
 
     public string Size => Format.Size((ulong)Volume.Size);
 
     public string UsedBy => Volume.RefCount switch
     {
-        > 0 => $"used by {Volume.RefCount}",
-        0 => "unused",
+        > 0 => Loc.Get("Resources.UsedBy", Volume.RefCount),
+        0 => Loc.Get("Resources.Unused"),
         _ => "",
     };
 }

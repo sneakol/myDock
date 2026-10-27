@@ -6,6 +6,7 @@ using MyDock.Core.Docker;
 using MyDock.Core.Formatting;
 using MyDock.Core.Models;
 using MyDock.Core.Monitoring;
+using MyDock.Core.Localization;
 
 namespace MyDock.App.ViewModels;
 
@@ -125,8 +126,8 @@ public sealed partial class ContainerViewModel : ObservableObject
         var ports = info.PublicPorts ?? [];
         if (!PublicPorts.SequenceEqual(ports))
             PublicPorts = ports;
-        PortsText = info.Ports is null ? null : "Ports: " + info.Ports;
-        NetworksText = info.Networks is null ? null : "Network: " + info.Networks;
+        PortsText = info.Ports is null ? null : Loc.Get("Row.PortsPrefix", info.Ports);
+        NetworksText = info.Networks is null ? null : Loc.Get("Row.NetworkPrefix", info.Networks);
 
         // The same stats object is republished whenever another container changes: only a new one is a new sample.
         if (ReferenceEquals(stats, _lastStats))
@@ -152,7 +153,7 @@ public sealed partial class ContainerViewModel : ObservableObject
         MemoryPercent = stats.MemoryPercent;
         NetworkText = $"RX {Format.Rate(stats.NetRxRate)}  TX {Format.Rate(stats.NetTxRate)}";
         DiskText = $"R {Format.Rate(stats.BlockReadRate)}  W {Format.Rate(stats.BlockWriteRate)}";
-        Details = $"{info.Image}\n{Format.Percent(stats.MemoryPercent)} of memory · {stats.Pids} processes";
+        Details = $"{info.Image}\n{Loc.Get("Row.MemoryDetail", Format.Percent(stats.MemoryPercent), stats.Pids)}";
     }
 
     /// <summary>Drops the CPU history, e.g. after the panel was hidden and sampling paused.</summary>
@@ -189,7 +190,7 @@ public sealed partial class ContainerViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            Error = $"Could not open the browser: {ex.Message}";
+            Error = Loc.Get("Row.BrowserError", ex.Message);
         }
     }
 

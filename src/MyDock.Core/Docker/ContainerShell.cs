@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using MyDock.Core.Localization;
 
 namespace MyDock.Core.Docker;
 
@@ -48,7 +49,7 @@ public static class ContainerShell
     public static void Open(string containerId, string? preferredTerminal = null)
     {
         var terminal = FindTerminal(Environment.GetEnvironmentVariable("TERMINAL"), OnPath, preferredTerminal)
-            ?? throw new InvalidOperationException("No terminal emulator found. Set $TERMINAL.");
+            ?? throw new InvalidOperationException(Loc.Get("Err.NoTerminal"));
 
         var (exe, args) = Launch(terminal, ShellCommand(containerId));
         var info = new ProcessStartInfo(exe) { UseShellExecute = false };

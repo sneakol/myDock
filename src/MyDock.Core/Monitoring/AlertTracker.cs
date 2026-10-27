@@ -1,4 +1,5 @@
 using MyDock.Core.Docker;
+using MyDock.Core.Localization;
 
 namespace MyDock.Core.Monitoring;
 
@@ -14,10 +15,10 @@ public sealed record ContainerAlert(AlertKind Kind, string Name, int ExitCode = 
 {
     public string Message => Kind switch
     {
-        AlertKind.Crashed => $"{Name} exited with code {ExitCode}",
-        AlertKind.OutOfMemory => $"{Name} was killed: out of memory",
-        AlertKind.Unhealthy => $"{Name} is unhealthy",
-        _ => $"{Name} keeps failing (restart loop)",
+        AlertKind.Crashed => Loc.Get("Alert.Crashed", Name, ExitCode),
+        AlertKind.OutOfMemory => Loc.Get("Alert.Oom", Name),
+        AlertKind.Unhealthy => Loc.Get("Alert.Unhealthy", Name),
+        _ => Loc.Get("Alert.RestartLoop", Name),
     };
 }
 

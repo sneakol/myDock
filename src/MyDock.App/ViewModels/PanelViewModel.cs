@@ -6,13 +6,12 @@ using MyDock.App.Services;
 using MyDock.Core.Docker;
 using MyDock.Core.Models;
 using MyDock.Core.Monitoring;
+using MyDock.Core.Localization;
 
 namespace MyDock.App.ViewModels;
 
 public sealed partial class PanelViewModel : ObservableObject
 {
-    private const string UngroupedHeader = "Other";
-
     private readonly ContainerMonitor _monitor;
     private readonly SettingsStore _store;
     private readonly Settings _settings;
@@ -133,9 +132,9 @@ public sealed partial class PanelViewModel : ObservableObject
 
     public string SortLabel => Sort switch
     {
-        SortMode.Cpu => "CPU",
-        SortMode.Memory => "RAM",
-        _ => "Name",
+        SortMode.Cpu => Loc.Get("Row.Cpu"),
+        SortMode.Memory => Loc.Get("Row.Ram"),
+        _ => Loc.Get("Panel.SortName"),
     };
 
     public void Apply(MonitorSnapshot snapshot)
@@ -173,12 +172,12 @@ public sealed partial class PanelViewModel : ObservableObject
         IsEmpty = IsConnected && active.Count == 0 && (!IsFiltering || _byId.Count == 0);
         NoMatches = IsConnected && IsFiltering && visible.Count == 0 && _byId.Count > 0;
         HasStopped = stopped.Count > 0;
-        StoppedHeader = $"Stopped ({stopped.Count})";
+        StoppedHeader = Loc.Get("Panel.StoppedHeader", stopped.Count);
         Summary = !IsConnected ? ""
             : activeCount switch
             {
                 0 => "",
-                var n => $"{n} active",
+                var n => Loc.Get("Panel.ActiveCount", n),
             };
 
         // After a failed delete the container may already be gone, and the message is all the user has left.
@@ -234,7 +233,7 @@ public sealed partial class PanelViewModel : ObservableObject
     public string? AddFile(string path)
     {
         if (ComposeFiles.Detect(path) is null)
-            return "Not a Dockerfile or docker-compose file.";
+            return Loc.Get("Panel.NotAComposeFile");
 
         if (Files.Any(f => f.Path == path))
             return null;
@@ -416,7 +415,7 @@ public sealed partial class PanelViewModel : ObservableObject
         string? previous = null;
         foreach (var container in list)
         {
-            var header = grouped ? container.ComposeProject ?? UngroupedHeader : null;
+            var header = grouped ? container.ComposeProject ?? Loc.Get("Panel.Other") : null;
             container.GroupHeader = header;
             container.ShowGroupHeader = header is not null && header != previous;
             container.GroupCount = counts[container.ComposeProject ?? ""];

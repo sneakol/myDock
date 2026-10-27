@@ -36,6 +36,9 @@ public sealed class Settings
     /// <summary>Terminal for the Shell button; empty uses $TERMINAL or the first known one.</summary>
     public string? Terminal { get; set; }
 
+    /// <summary>"en" or "it"; null follows the system language. Read once at startup.</summary>
+    public string? Language { get; set; }
+
     public bool Allows(AlertKind kind) => NotificationsEnabled && kind switch
     {
         AlertKind.Crashed or AlertKind.OutOfMemory => NotifyCrashes,

@@ -6,13 +6,14 @@ using System.Threading.Channels;
 using Docker.DotNet;
 using Docker.DotNet.Models;
 using MyDock.Core.Models;
+using MyDock.Core.Localization;
 
 namespace MyDock.Core.Docker;
 
 public sealed class DockerService : IDockerService
 {
     public const string DefaultEndpoint = "unix:///var/run/docker.sock";
-    private const string OldDaemonMessage = "This Docker daemon is too old to report disk usage (API 1.52 or newer is needed).";
+    private static string OldDaemonMessage => Loc.Get("Err.OldDaemon");
     private const string ComposeProjectLabel = "com.docker.compose.project";
 
     private static readonly JsonSerializerOptions InspectOptions = new()

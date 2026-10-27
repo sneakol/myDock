@@ -2,6 +2,7 @@ using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using MyDock.Core.Docker;
+using MyDock.Core.Localization;
 
 namespace MyDock.App.ViewModels;
 
@@ -37,17 +38,17 @@ public sealed partial class OutputViewModel : ObservableObject
         try
         {
             await run(Append, _cts.Token);
-            Status = "Done";
+            Status = Loc.Get("Output.Done");
             return true;
         }
         catch (OperationCanceledException)
         {
-            Status = "Cancelled";
+            Status = Loc.Get("Output.Cancelled");
             return false;
         }
         catch (Exception ex)
         {
-            Status = "Failed: " + ex.Message;
+            Status = Loc.Get("Output.Failed", ex.Message);
             throw;
         }
         finally
