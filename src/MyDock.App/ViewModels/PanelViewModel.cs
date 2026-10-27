@@ -42,6 +42,7 @@ public sealed partial class PanelViewModel : ObservableObject
     private bool _onlyUnhealthy;
 
     [ObservableProperty] private bool _noMatches;
+    [ObservableProperty] private bool _isShowingSettings;
     [ObservableProperty] private bool _startAtLogin = Autostart.IsEnabled;
 
     [ObservableProperty]
@@ -71,6 +72,7 @@ public sealed partial class PanelViewModel : ObservableObject
         _isStoppedExpanded = _settings.StoppedExpanded;
         _sort = _settings.Sort;
         Endpoint = endpoint;
+        Preferences = new SettingsViewModel(_settings, _store, () => Apply(_monitor.Current));
 
         foreach (var path in _settings.ComposeFiles.Where(File.Exists))
             Files.Add(new ComposeFileViewModel(path, _runner, _settings, _store, RemoveFile));
@@ -92,6 +94,10 @@ public sealed partial class PanelViewModel : ObservableObject
     public ObservableCollection<ComposeFileViewModel> Files { get; } = [];
 
     public string Endpoint { get; }
+
+    public Settings Settings => _settings;
+
+    public SettingsViewModel Preferences { get; }
 
     public string FixCommand => "sudo usermod -aG docker $USER";
 
@@ -130,7 +136,7 @@ public sealed partial class PanelViewModel : ObservableObject
             if (_byId.TryGetValue(container.Info.Id, out var existing))
                 existing.Update(container);
             else
-                _byId[container.Info.Id] = new ContainerViewModel(_monitor, container, RequestDelete, ToggleGroup, RunGroupAsync, RequestLogs);
+                _byId[container.Info.Id] = new ContainerViewModel(_monitor, container, _settings, RequestDelete, ToggleGroup, RunGroupAsync, RequestLogs);
         }
 
         foreach (var id in _byId.Keys.Where(id => !seen.Contains(id)).ToList())
@@ -305,6 +311,12 @@ public sealed partial class PanelViewModel : ObservableObject
         _store.Save(_settings);
         Apply(_monitor.Current);
     }
+
+    [RelayCommand]
+    private void ShowSettings() => IsShowingSettings = true;
+
+    [RelayCommand]
+    public void CloseSettings() => IsShowingSettings = false;
 
     [RelayCommand]
     private void Hide() => HideRequested?.Invoke();

@@ -45,8 +45,12 @@ public partial class App : Application
         {
             _docker = new DockerService();
             _monitor = new ContainerMonitor(_docker);
-            _monitor.Alerted += Notifier.Show;
             _viewModel = new PanelViewModel(_monitor, _store, new ProcessComposeRunner(), _docker.Endpoint.ToString());
+            _monitor.Alerted += alert =>
+            {
+                if (_viewModel.Settings.Allows(alert.Kind))
+                    Notifier.Show(alert);
+            };
             _viewModel.QuitRequested += Quit;
             _panel = new PanelWindow { DataContext = _viewModel };
             _panel.PropertyChanged += OnPanelPropertyChanged;

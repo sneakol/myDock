@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using MyDock.App.Services;
 using MyDock.Core.Docker;
 using MyDock.Core.Formatting;
 using MyDock.Core.Models;
@@ -22,6 +23,7 @@ public sealed partial class ContainerViewModel : ObservableObject
     private const string NoValue = "–";
 
     private readonly ContainerMonitor _monitor;
+    private readonly Settings _settings;
     private readonly Action<ContainerViewModel> _requestDelete;
     private readonly Action<ContainerViewModel> _showLogs;
     private readonly Action<string> _toggleGroup;
@@ -66,12 +68,14 @@ public sealed partial class ContainerViewModel : ObservableObject
     public ContainerViewModel(
         ContainerMonitor monitor,
         ContainerSnapshot snapshot,
+        Settings settings,
         Action<ContainerViewModel> requestDelete,
         Action<string> toggleGroup,
         Func<string, ProjectAction, Task> runGroup,
         Action<ContainerViewModel> showLogs)
     {
         _monitor = monitor;
+        _settings = settings;
         _requestDelete = requestDelete;
         _showLogs = showLogs;
         _toggleGroup = toggleGroup;
@@ -114,7 +118,7 @@ public sealed partial class ContainerViewModel : ObservableObject
         IsActive = info.IsActive;
         IsPaused = info.State == ContainerState.Paused;
         CanPause = info.State == ContainerState.Running;
-        Indicator = IndicatorFor(info);
+        Indicator = IndicatorFor(info, stats, _settings);
         ComposeProject = info.ComposeProject;
         IsUnhealthy = info.Health == HealthState.Unhealthy;
         // Rebuilding the list on every refresh would redraw the port buttons each second.
@@ -201,7 +205,7 @@ public sealed partial class ContainerViewModel : ObservableObject
         Error = null;
         try
         {
-            ContainerShell.Open(Id);
+            ContainerShell.Open(Id, _settings.Terminal);
         }
         catch (Exception ex)
         {
@@ -249,13 +253,28 @@ public sealed partial class ContainerViewModel : ObservableObject
         }
     }
 
-    private static Indicator IndicatorFor(ContainerInfo info) => info.State switch
+    private static Indicator IndicatorFor(ContainerInfo info, ContainerStats? stats, Settings settings)
     {
-        ContainerState.Running when info.Health == HealthState.Unhealthy => Indicator.Bad,
-        ContainerState.Running when info.Health == HealthState.Starting => Indicator.Warn,
-        ContainerState.Running => Indicator.Ok,
-        ContainerState.Paused or ContainerState.Restarting => Indicator.Warn,
-        ContainerState.Dead => Indicator.Bad,
-        _ => Indicator.Off,
-    };
+        var state = info.State switch
+        {
+            ContainerState.Running when info.Health == HealthState.Unhealthy => Indicator.Bad,
+            ContainerState.Running when info.Health == HealthState.Starting => Indicator.Warn,
+            ContainerState.Running => Indicator.Ok,
+            ContainerState.Paused or ContainerState.Restarting => Indicator.Warn,
+            ContainerState.Dead => Indicator.Bad,
+            _ => Indicator.Off,
+        };
+        if (state != Indicator.Ok || stats is null)
+            return state;
+
+        // Load only turns a healthy running container yellow or red.
+        var cpu = Thresholds.Classify(stats.CpuPercent, settings.CpuWarn, settings.CpuBad);
+        var memory = Thresholds.Classify(stats.MemoryPercent, settings.MemoryWarn, settings.MemoryBad);
+        return (Load)Math.Max((int)cpu, (int)memory) switch
+        {
+            Load.Critical => Indicator.Bad,
+            Load.High => Indicator.Warn,
+            _ => Indicator.Ok,
+        };
+    }
 }

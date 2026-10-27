@@ -263,7 +263,10 @@
           <CheckBox IsChecked="{Binding StartAtLogin}" VerticalAlignment="Center">
             <TextBlock Classes="secondary" Text="Start at login" />
           </CheckBox>
-          <Button Grid.Column="1" Classes="link" Content="Quit" Command="{Binding QuitCommand}" />
+          <StackPanel Grid.Column="1" Orientation="Horizontal">
+            <Button Classes="link" Content="Settings" Command="{Binding ShowSettingsCommand}" />
+            <Button Classes="link" Content="Quit" Command="{Binding QuitCommand}" />
+          </StackPanel>
         </Grid>
       </Border>
 
@@ -271,6 +274,48 @@
       <Panel Grid.RowSpan="4" IsVisible="{Binding IsShowingLogs}">
         <v:LogView x:Name="PanelLogs" DataContext="{Binding Logs}" />
       </Panel>
+
+      <!-- Settings: an overlay like the logs. Changes apply and save as they are made. -->
+      <Border Grid.RowSpan="4" Background="{DynamicResource PanelBackground}" IsVisible="{Binding IsShowingSettings}">
+        <Grid RowDefinitions="Auto,*">
+          <Grid ColumnDefinitions="*,Auto" Margin="14,8,6,8">
+            <TextBlock Classes="title" Text="Settings" VerticalAlignment="Center" />
+            <Button Grid.Column="1" Classes="icon" Command="{Binding CloseSettingsCommand}" ToolTip.Tip="Close">
+              <PathIcon Data="{StaticResource IconClose}" />
+            </Button>
+          </Grid>
+          <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Disabled">
+            <StackPanel Margin="14,0,14,12" Spacing="6" DataContext="{Binding Preferences}" x:DataType="vm:SettingsViewModel">
+              <TextBlock Classes="group" Margin="0,4,0,0" Text="NOTIFICATIONS" />
+              <CheckBox IsChecked="{Binding NotificationsEnabled}" Content="Desktop notifications" />
+              <StackPanel Margin="20,0,0,0" IsEnabled="{Binding NotificationsEnabled}">
+                <CheckBox IsChecked="{Binding NotifyCrashes}" Content="Crashes and out-of-memory kills" />
+                <CheckBox IsChecked="{Binding NotifyUnhealthy}" Content="Becomes unhealthy" />
+                <CheckBox IsChecked="{Binding NotifyRestartLoops}" Content="Restart loops" />
+              </StackPanel>
+
+              <TextBlock Classes="group" Margin="0,10,0,0" Text="LOAD INDICATOR" />
+              <TextBlock Classes="secondary" TextWrapping="Wrap"
+                         Text="A running container turns yellow, then red, from these values. 0 switches a level off." />
+              <Grid ColumnDefinitions="*,Auto,Auto" RowDefinitions="Auto,Auto,Auto" RowSpacing="4" ColumnSpacing="8">
+                <TextBlock Grid.Column="1" Classes="label" Text="Warning" HorizontalAlignment="Center" />
+                <TextBlock Grid.Column="2" Classes="label" Text="Bad" HorizontalAlignment="Center" />
+                <TextBlock Grid.Row="1" VerticalAlignment="Center" Text="CPU % (100 = one core)" />
+                <NumericUpDown Grid.Row="1" Grid.Column="1" Value="{Binding CpuWarn}" Minimum="0" Maximum="10000" Increment="5" FormatString="0" Width="110" />
+                <NumericUpDown Grid.Row="1" Grid.Column="2" Value="{Binding CpuBad}" Minimum="0" Maximum="10000" Increment="5" FormatString="0" Width="110" />
+                <TextBlock Grid.Row="2" VerticalAlignment="Center" Text="RAM % of limit" />
+                <NumericUpDown Grid.Row="2" Grid.Column="1" Value="{Binding MemoryWarn}" Minimum="0" Maximum="100" Increment="5" FormatString="0" Width="110" />
+                <NumericUpDown Grid.Row="2" Grid.Column="2" Value="{Binding MemoryBad}" Minimum="0" Maximum="100" Increment="5" FormatString="0" Width="110" />
+              </Grid>
+
+              <TextBlock Classes="group" Margin="0,10,0,0" Text="SHELL" />
+              <TextBlock Classes="secondary" TextWrapping="Wrap"
+                         Text="Terminal for the Shell button (a command on PATH or a full path). Empty uses $TERMINAL or the first one found." />
+              <TextBox Text="{Binding Terminal}" PlaceholderText="e.g. gnome-terminal" FontSize="12" MinHeight="28" Padding="8,4" />
+            </StackPanel>
+          </ScrollViewer>
+        </Grid>
+      </Border>
 
       <!-- Delete confirmation: an overlay rather than a window, which would take focus and hide the panel. -->
       <Border Grid.RowSpan="4" Background="#99000000" IsVisible="{Binding IsDeleting}">

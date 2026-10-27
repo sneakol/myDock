@@ -32,19 +32,22 @@ public static class ContainerShell
         return (terminal, [.. prefix, .. command]);
     }
 
-    /// <summary>The terminal named by <paramref name="terminalEnv"/> ($TERMINAL), else the first known one that <paramref name="exists"/>.</summary>
-    // shortcut: fixed list plus $TERMINAL (run with -e); an unusual terminal needs $TERMINAL.
-    public static string? FindTerminal(string? terminalEnv, Func<string, bool> exists)
+    /// <summary>The terminal the user chose, else the one named by <paramref name="terminalEnv"/> ($TERMINAL), else the first known one that <paramref name="exists"/>.</summary>
+    // shortcut: fixed list plus a chosen terminal or $TERMINAL (run with -e unless known); an unusual terminal needs one of those.
+    public static string? FindTerminal(string? terminalEnv, Func<string, bool> exists, string? preferred = null)
     {
-        if (!string.IsNullOrWhiteSpace(terminalEnv) && exists(terminalEnv))
-            return terminalEnv;
+        foreach (var candidate in new[] { preferred, terminalEnv })
+        {
+            if (!string.IsNullOrWhiteSpace(candidate) && exists(candidate))
+                return candidate;
+        }
 
         return Terminals.FirstOrDefault(exists);
     }
 
-    public static void Open(string containerId)
+    public static void Open(string containerId, string? preferredTerminal = null)
     {
-        var terminal = FindTerminal(Environment.GetEnvironmentVariable("TERMINAL"), OnPath)
+        var terminal = FindTerminal(Environment.GetEnvironmentVariable("TERMINAL"), OnPath, preferredTerminal)
             ?? throw new InvalidOperationException("No terminal emulator found. Set $TERMINAL.");
 
         var (exe, args) = Launch(terminal, ShellCommand(containerId));

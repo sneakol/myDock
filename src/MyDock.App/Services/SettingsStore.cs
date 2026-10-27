@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using MyDock.Core.Monitoring;
 
 namespace MyDock.App.Services;
 
@@ -18,6 +19,29 @@ public sealed class Settings
     public List<string> ComposeFiles { get; set; } = [];
     public List<string> CollapsedProjects { get; set; } = [];
     public Dictionary<string, string> EnvChoice { get; set; } = [];
+
+    public bool NotificationsEnabled { get; set; } = true;
+    public bool NotifyCrashes { get; set; } = true;
+    public bool NotifyUnhealthy { get; set; } = true;
+    public bool NotifyRestartLoops { get; set; } = true;
+
+    /// <summary>Percent of one core (docker stats convention) from which a running container shows as warning / bad; 0 switches it off.</summary>
+    public int CpuWarn { get; set; }
+    public int CpuBad { get; set; }
+
+    /// <summary>Percent of the memory limit, same rules as the CPU ones.</summary>
+    public int MemoryWarn { get; set; } = 80;
+    public int MemoryBad { get; set; } = 95;
+
+    /// <summary>Terminal for the Shell button; empty uses $TERMINAL or the first known one.</summary>
+    public string? Terminal { get; set; }
+
+    public bool Allows(AlertKind kind) => NotificationsEnabled && kind switch
+    {
+        AlertKind.Crashed or AlertKind.OutOfMemory => NotifyCrashes,
+        AlertKind.Unhealthy => NotifyUnhealthy,
+        _ => NotifyRestartLoops,
+    };
 }
 
 /// <summary>

@@ -89,7 +89,9 @@ public partial class PanelWindow : Window
         if (e.Key != Key.Escape)
             return;
 
-        if (_viewModel is { IsDeleting: true })
+        if (_viewModel is { IsShowingSettings: true })
+            _viewModel.CloseSettings();
+        else if (_viewModel is { IsDeleting: true })
             _viewModel.CancelDeleteCommand.Execute(null);
         else if (_viewModel is { IsShowingLogs: true })
             _viewModel.CloseLogs();

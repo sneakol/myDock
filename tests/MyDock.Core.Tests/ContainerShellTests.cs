@@ -37,5 +37,7 @@ public class ContainerShellTests
         Assert.Equal("konsole", ContainerShell.FindTerminal("missing", t => t is "konsole" or "xterm"));
         Assert.Equal("xterm", ContainerShell.FindTerminal(null, t => t == "xterm"));
         Assert.Null(ContainerShell.FindTerminal(null, _ => false));
+        Assert.Equal("chosen", ContainerShell.FindTerminal("mine", t => t is "chosen" or "mine" or "xterm", preferred: "chosen"));
+        Assert.Equal("mine", ContainerShell.FindTerminal("mine", t => t is "mine" or "xterm", preferred: "missing"));
     }
 }
