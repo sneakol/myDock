@@ -92,6 +92,8 @@ public partial class PanelWindow : Window
 
         if (_viewModel is { IsShowingOutput: true })
             _viewModel.CloseOutput();
+        else if (_viewModel is { IsShowingDisk: true })
+            _viewModel.CloseDisk();
         else if (_viewModel is { IsShowingSettings: true })
             _viewModel.CloseSettings();
         else if (_viewModel is { IsDeleting: true })
@@ -139,6 +141,8 @@ public partial class PanelWindow : Window
         if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
             BeginMoveDrag(e);
     }
+
+    private void OnCloseDisk(object? sender, RoutedEventArgs e) => _viewModel?.CloseDisk();
 
     private async void OnCopyFixCommand(object? sender, RoutedEventArgs e)
     {

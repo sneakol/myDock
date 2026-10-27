@@ -10,6 +10,14 @@ public sealed class FormatTests
 
     [Theory]
     [InlineData(0ul, "0 B")]
+    [InlineData(999ul, "999 B")]
+    [InlineData(4630493827ul, "4.63 GB")]
+    [InlineData(40960ul, "41 kB")]
+    public void Size_uses_decimal_units_like_docker_system_df(ulong bytes, string expected) =>
+        Assert.Equal(expected, Format.Size(bytes, Invariant));
+
+    [Theory]
+    [InlineData(0ul, "0 B")]
     [InlineData(1023ul, "1023 B")]
     [InlineData(1024ul, "1 KiB")]
     [InlineData(1536ul, "1.5 KiB")]

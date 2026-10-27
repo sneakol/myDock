@@ -291,6 +291,41 @@ public sealed class ContainerMonitorTests : IAsyncDisposable
     }
 
     [Fact]
+    public async Task Disk_usage_and_prunes_are_forwarded_to_docker()
+    {
+        _docker.Usage = new(new(8, 100, 40), new(2, 1, 1), new(3, 50, 20), new(20, 500, 400));
+
+        Assert.Equal(new UsageLine(8, 100, 40), (await _monitor.GetDiskUsageAsync()).Images);
+        Assert.Equal(123, await _monitor.PruneImagesAsync());
+        Assert.Equal(456, await _monitor.PruneVolumesAsync());
+        Assert.Equal(["df ", "prune-images ", "prune-volumes "], _docker.Actions);
+    }
+
+    [Fact]
+    public async Task Deleting_an_image_removes_each_tag_or_the_id_when_it_has_none()
+    {
+        await _monitor.DeleteImageAsync(new ImageInfo("sha256:aaa", ["nginx:1", "nginx:latest"], 10, DateTimeOffset.UnixEpoch, 0));
+        await _monitor.DeleteImageAsync(new ImageInfo("sha256:bbb", [], 10, DateTimeOffset.UnixEpoch, 0));
+
+        Assert.Equal(["rmi nginx:1", "rmi nginx:latest", "rmi sha256:bbb"], _docker.Actions);
+    }
+
+    [Fact]
+    public async Task An_image_used_by_a_container_is_not_touched()
+    {
+        _docker.Set(FakeDocker.Container("a", imageId: "sha256:used"));
+        _monitor.Start();
+        await Connected();
+
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => _monitor.DeleteImageAsync(new ImageInfo("sha256:used", ["x:1", "x:2"], 1, DateTimeOffset.UnixEpoch, -1)));
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => _monitor.DeleteImageAsync(new ImageInfo("sha256:other", ["y:1"], 1, DateTimeOffset.UnixEpoch, 2)));
+
+        Assert.Empty(_docker.Actions);
+    }
+
+    [Fact]
     public async Task Actions_are_forwarded_to_docker()
     {
         await _monitor.StartContainerAsync("a");

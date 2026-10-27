@@ -109,6 +109,33 @@ public sealed class ContainerMonitor : IAsyncDisposable
 
     public Task KillContainerAsync(string id, CancellationToken ct = default) => _docker.KillAsync(id, ct);
 
+    public Task<DiskUsage> GetDiskUsageAsync(CancellationToken ct = default) => _docker.GetDiskUsageAsync(ct);
+
+    public Task<IReadOnlyList<ImageInfo>> ListImagesAsync(CancellationToken ct = default) => _docker.ListImagesAsync(ct);
+
+    /// <summary>
+    /// Removes every tag of the image, which removes the image itself with the last one; a dangling image goes by id.
+    /// Refuses an image that a container uses, because the daemon would still untag all but the last tag.
+    /// </summary>
+    public async Task DeleteImageAsync(ImageInfo image, CancellationToken ct = default)
+    {
+        if (image.Containers > 0 || Current.Containers.Any(c => c.Info.ImageId == image.Id))
+            throw new InvalidOperationException("The image is used by containers.");
+
+        if (image.Tags.Count == 0)
+        {
+            await _docker.RemoveImageAsync(image.Id, ct).ConfigureAwait(false);
+            return;
+        }
+
+        foreach (var tag in image.Tags)
+            await _docker.RemoveImageAsync(tag, ct).ConfigureAwait(false);
+    }
+
+    public Task<long> PruneImagesAsync(CancellationToken ct = default) => _docker.PruneImagesAsync(ct);
+
+    public Task<long> PruneVolumesAsync(CancellationToken ct = default) => _docker.PruneVolumesAsync(ct);
+
     /// <summary>True when a container other than <paramref name="exceptContainerId"/>, running or not, uses the image.</summary>
     public bool IsImageShared(string imageId, string exceptContainerId) =>
         imageId.Length > 0 && Current.Containers.Any(c => c.Info.Id != exceptContainerId && c.Info.ImageId == imageId);

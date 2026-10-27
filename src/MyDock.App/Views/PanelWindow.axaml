@@ -264,6 +264,7 @@
             <TextBlock Classes="secondary" Text="Start at login" />
           </CheckBox>
           <StackPanel Grid.Column="1" Orientation="Horizontal">
+            <Button Classes="link" Content="Disk" Command="{Binding ShowDiskCommand}" IsVisible="{Binding IsConnected}" />
             <Button Classes="link" Content="Settings" Command="{Binding ShowSettingsCommand}" />
             <Button Classes="link" Content="Quit" Command="{Binding QuitCommand}" />
           </StackPanel>
@@ -279,6 +280,98 @@
       <Panel Grid.RowSpan="4" IsVisible="{Binding IsShowingOutput}">
         <v:OutputView x:Name="PanelOutput" DataContext="{Binding Output}" />
       </Panel>
+
+      <!-- Disk usage and prunes: an overlay like the settings. -->
+      <Border Grid.RowSpan="4" Background="{DynamicResource PanelBackground}" IsVisible="{Binding IsShowingDisk}">
+        <Grid RowDefinitions="Auto,Auto,*" DataContext="{Binding Disk}" x:DataType="vm:DiskViewModel">
+          <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto" Margin="14,8,6,8">
+            <TextBlock Classes="title" Text="Disk" VerticalAlignment="Center" />
+            <Button Grid.Column="1" Classes="link" Content="Overview" Command="{Binding ShowOverviewCommand}" IsEnabled="{Binding ShowImages}" />
+            <Button Grid.Column="2" Classes="link" Content="Images" Command="{Binding ShowImagesTabCommand}" IsEnabled="{Binding !ShowImages}" />
+            <Button Grid.Column="3" Classes="link" Content="Refresh" Command="{Binding RefreshCommand}" IsEnabled="{Binding !IsBusy}" />
+            <Button Grid.Column="4" Classes="icon" Click="OnCloseDisk" ToolTip.Tip="Close">
+              <PathIcon Data="{StaticResource IconClose}" />
+            </Button>
+          </Grid>
+          <ProgressBar Grid.Row="1" Classes="busy" IsIndeterminate="True" IsVisible="{Binding IsBusy}" />
+          <StackPanel Grid.Row="2" Margin="14,0,14,12" Spacing="8" IsEnabled="{Binding !IsBusy}">
+            <StackPanel Spacing="8" IsVisible="{Binding !ShowImages}">
+            <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="12">
+              <TextBlock Grid.Column="1" Classes="label" Text="Items" />
+              <TextBlock Grid.Column="2" Classes="label" Text="Size" />
+              <TextBlock Grid.Column="3" Classes="label" Text="Reclaimable" />
+            </Grid>
+            <ItemsControl ItemsSource="{Binding Rows}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:DiskRow">
+                  <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="12" Margin="0,2">
+                    <TextBlock Text="{Binding Name}" />
+                    <TextBlock Grid.Column="1" Classes="value" Text="{Binding Count}" />
+                    <TextBlock Grid.Column="2" Classes="value" Text="{Binding Size}" />
+                    <TextBlock Grid.Column="3" Classes="value" Text="{Binding Reclaimable}" />
+                  </Grid>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+            </StackPanel>
+
+            <TextBlock Classes="error" TextWrapping="Wrap" Text="{Binding Error}"
+                       IsVisible="{Binding Error, Converter={x:Static ObjectConverters.IsNotNull}}" />
+            <TextBlock Classes="secondary" TextWrapping="Wrap" Text="{Binding Result}"
+                       IsVisible="{Binding Result, Converter={x:Static ObjectConverters.IsNotNull}}" />
+
+            <ScrollViewer MaxHeight="420" HorizontalScrollBarVisibility="Disabled" IsVisible="{Binding ShowImages}">
+              <ItemsControl ItemsSource="{Binding Images}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:ImageRowViewModel">
+                    <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8" Margin="0,4">
+                      <StackPanel VerticalAlignment="Center">
+                        <TextBlock Classes="name" Text="{Binding Title}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Title}" />
+                        <TextBlock Classes="secondary" Text="{Binding Subtitle}" TextTrimming="CharacterEllipsis" />
+                      </StackPanel>
+                      <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                        <TextBlock Classes="value" Text="{Binding Size}" />
+                        <TextBlock Classes="value small" Text="{Binding UsedBy}" />
+                      </StackPanel>
+                      <c:ConfirmButton Grid.Column="2" Classes="icon confirm" Command="{Binding DeleteCommand}"
+                                       ToolTip.Tip="Delete the image (the daemon refuses one that containers use)">
+                        <Panel>
+                          <PathIcon Data="{StaticResource IconTrash}" IsVisible="{Binding !$parent[c:ConfirmButton].IsArmed}" />
+                          <TextBlock Text="Delete?" IsVisible="{Binding $parent[c:ConfirmButton].IsArmed}" />
+                        </Panel>
+                      </c:ConfirmButton>
+                    </Grid>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </ScrollViewer>
+
+            <StackPanel Spacing="8" IsVisible="{Binding !ShowImages}">
+            <TextBlock Classes="group" Margin="0,6,0,0" Text="CLEAN UP" />
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock Classes="secondary" TextWrapping="Wrap" VerticalAlignment="Center"
+                         Text="Dangling images: untagged and unused." />
+              <c:ConfirmButton Grid.Column="1" Classes="link confirm" Command="{Binding PruneImagesCommand}">
+                <Panel>
+                  <TextBlock Text="Prune images" IsVisible="{Binding !$parent[c:ConfirmButton].IsArmed}" />
+                  <TextBlock Text="Sure?" IsVisible="{Binding $parent[c:ConfirmButton].IsArmed}" />
+                </Panel>
+              </c:ConfirmButton>
+            </Grid>
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock Classes="secondary" TextWrapping="Wrap" VerticalAlignment="Center"
+                         Text="Anonymous volumes no container uses. Named volumes are never touched." />
+              <c:ConfirmButton Grid.Column="1" Classes="link confirm" Command="{Binding PruneVolumesCommand}">
+                <Panel>
+                  <TextBlock Text="Prune volumes" IsVisible="{Binding !$parent[c:ConfirmButton].IsArmed}" />
+                  <TextBlock Text="Sure?" IsVisible="{Binding $parent[c:ConfirmButton].IsArmed}" />
+                </Panel>
+              </c:ConfirmButton>
+            </Grid>
+            </StackPanel>
+          </StackPanel>
+        </Grid>
+      </Border>
 
       <!-- Settings: an overlay like the logs. Changes apply and save as they are made. -->
       <Border Grid.RowSpan="4" Background="{DynamicResource PanelBackground}" IsVisible="{Binding IsShowingSettings}">

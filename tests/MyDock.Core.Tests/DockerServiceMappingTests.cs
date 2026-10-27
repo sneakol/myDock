@@ -135,6 +135,46 @@ public sealed class DockerServiceMappingTests
     }
 
     [Fact]
+    public void Maps_disk_usage_and_treats_missing_numbers_as_zero()
+    {
+        var usage = DockerService.ToDiskUsage(new SystemDataUsageInfoResponse
+        {
+            ImageUsage = new ImageDiskUsage { TotalCount = 8, TotalSize = 4630, Reclaimable = 2893 },
+            VolumeUsage = new VolumeDiskUsage { TotalCount = 3 },
+            BuildCacheUsage = new BuildDiskUsage { TotalCount = 1, TotalSize = -1 },
+        });
+
+        Assert.Equal(new UsageLine(8, 4630, 2893), usage.Images);
+        Assert.Equal(new UsageLine(3, 0, 0), usage.Volumes);
+        Assert.Equal(new UsageLine(0, 0, 0), usage.Containers);
+        Assert.Equal(new UsageLine(1, 0, 0), usage.BuildCache);
+    }
+
+    [Fact]
+    public void Maps_an_image_and_drops_the_none_tag()
+    {
+        var image = DockerService.ToImageInfo(new ImagesListResponse
+        {
+            ID = "sha256:abc",
+            RepoTags = ["<none>:<none>", "nginx:1"],
+            Size = 1000,
+            Created = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc),
+            Containers = 2,
+        });
+
+        Assert.Equal("sha256:abc", image.Id);
+        Assert.Equal(["nginx:1"], image.Tags);
+        Assert.Equal(1000, image.Size);
+        Assert.Equal(new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero), image.Created);
+        Assert.Equal(2, image.Containers);
+        Assert.Empty(DockerService.ToImageInfo(new ImagesListResponse { ID = "x" }).Tags);
+    }
+
+    [Fact]
+    public void Disk_usage_in_an_unknown_shape_is_an_error() =>
+        Assert.Throws<DockerOperationException>(() => DockerService.ToDiskUsage(new SystemDataUsageInfoResponse()));
+
+    [Fact]
     public void Web_ports_keep_only_published_tcp_ports_once_in_order()
     {
         var ports = DockerService.WebPorts([(9000, "tcp"), (8080, "tcp"), (8080, "tcp"), (53, "udp"), (0, "tcp")]);

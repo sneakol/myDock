@@ -35,6 +35,18 @@ public interface IDockerService : IDisposable
     /// <summary>Sends SIGKILL at once, without the grace period of <see cref="StopAsync"/>.</summary>
     Task KillAsync(string id, CancellationToken ct);
 
+    /// <summary>Sizes of images, containers, volumes and build cache; needs a daemon with API 1.52 or newer.</summary>
+    Task<DiskUsage> GetDiskUsageAsync(CancellationToken ct);
+
+    /// <summary>Lists the images, with how many containers use each.</summary>
+    Task<IReadOnlyList<ImageInfo>> ListImagesAsync(CancellationToken ct);
+
+    /// <summary>Removes dangling (untagged, unused) images; returns the bytes freed.</summary>
+    Task<long> PruneImagesAsync(CancellationToken ct);
+
+    /// <summary>Removes unused anonymous volumes, never named ones; returns the bytes freed.</summary>
+    Task<long> PruneVolumesAsync(CancellationToken ct);
+
     /// <summary>Removes a stopped container; the daemon refuses a running one.</summary>
     Task RemoveContainerAsync(string id, CancellationToken ct);
 

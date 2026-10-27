@@ -12,6 +12,10 @@ public static class Format
     public static string Memory(ulong bytes, IFormatProvider? culture = null) =>
         Scale(bytes, 1024, BinaryUnits, culture);
 
+    /// <summary>Disk sizes in decimal units, as <c>docker system df</c> shows them.</summary>
+    public static string Size(ulong bytes, IFormatProvider? culture = null) =>
+        Scale(bytes, 1000, DecimalUnits, culture);
+
     /// <summary>Transfer rates in decimal units per second.</summary>
     public static string Rate(double bytesPerSecond, IFormatProvider? culture = null) =>
         Scale(Math.Max(0, bytesPerSecond), 1000, DecimalUnits, culture) + "/s";

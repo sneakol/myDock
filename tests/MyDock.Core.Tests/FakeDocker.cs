@@ -147,6 +147,22 @@ internal sealed class FakeDocker : IDockerService
 
     public Task KillAsync(string id, CancellationToken ct) => Record("kill", id);
 
+    public List<ImageInfo> Images { get; set; } = [];
+
+    public Task<IReadOnlyList<ImageInfo>> ListImagesAsync(CancellationToken ct) => Task.FromResult<IReadOnlyList<ImageInfo>>(Images);
+
+    public DiskUsage Usage { get; set; } = new(new(0, 0, 0), new(0, 0, 0), new(0, 0, 0), new(0, 0, 0));
+
+    public Task<DiskUsage> GetDiskUsageAsync(CancellationToken ct)
+    {
+        Record("df", "");
+        return Task.FromResult(Usage);
+    }
+
+    public Task<long> PruneImagesAsync(CancellationToken ct) => Record("prune-images", "").ContinueWith(_ => 123L, ct);
+
+    public Task<long> PruneVolumesAsync(CancellationToken ct) => Record("prune-volumes", "").ContinueWith(_ => 456L, ct);
+
     public Task RemoveContainerAsync(string id, CancellationToken ct) => Record("rm", id);
 
     public Task RemoveImageAsync(string reference, CancellationToken ct) => Record("rmi", reference);

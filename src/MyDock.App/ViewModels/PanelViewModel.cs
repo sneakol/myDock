@@ -46,6 +46,10 @@ public sealed partial class PanelViewModel : ObservableObject
     [ObservableProperty] private bool _isShowingSettings;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsShowingDisk))]
+    private DiskViewModel? _disk;
+
+    [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsShowingOutput))]
     private OutputViewModel? _output;
     [ObservableProperty] private bool _startAtLogin = Autostart.IsEnabled;
@@ -120,6 +124,8 @@ public sealed partial class PanelViewModel : ObservableObject
     public bool ShowStopped => IsStoppedExpanded || IsFiltering;
 
     public bool IsDeleting => PendingDelete is not null;
+
+    public bool IsShowingDisk => Disk is not null;
 
     public bool IsShowingOutput => Output is not null;
 
@@ -351,6 +357,12 @@ public sealed partial class PanelViewModel : ObservableObject
         if (Output is { IsFinished: true })
             Output = null;
     }
+
+    [RelayCommand]
+    private void ShowDisk() => Disk = new DiskViewModel(_monitor);
+
+    [RelayCommand]
+    public void CloseDisk() => Disk = null;
 
     [RelayCommand]
     private void ShowSettings() => IsShowingSettings = true;

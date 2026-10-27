@@ -96,6 +96,27 @@ public sealed class DockerService : IDockerService
     public Task KillAsync(string id, CancellationToken ct) =>
         RunAsync(() => _client.Containers.KillContainerAsync(id, new ContainerKillParameters(), ct));
 
+    public Task<DiskUsage> GetDiskUsageAsync(CancellationToken ct) =>
+        RunAsync(async () => ToDiskUsage(await _client.System
+            .GetDataUsageInfoAsync(new SytemDataUsageInfoParameters { Verbose = false }, ct).ConfigureAwait(false)));
+
+    public Task<IReadOnlyList<ImageInfo>> ListImagesAsync(CancellationToken ct) =>
+        RunAsync<IReadOnlyList<ImageInfo>>(async () =>
+            (await _client.Images.ListImagesAsync(new ImagesListParameters { SharedSize = true }, ct).ConfigureAwait(false))
+            .Select(ToImageInfo)
+            .ToList());
+
+    public Task<long> PruneImagesAsync(CancellationToken ct) =>
+        RunAsync(async () => (long)(await _client.Images.PruneImagesAsync(new ImagesPruneParameters(), ct).ConfigureAwait(false)).SpaceReclaimed);
+
+    // Anonymous volumes only, asked for explicitly: named ones may hold data and go one by one. Daemons older than API 1.42
+    // ignore the filter and prune every unused volume, which is why the unversioned URLs this client sends matter.
+    public Task<long> PruneVolumesAsync(CancellationToken ct) =>
+        RunAsync(async () => (long)(await _client.Volumes.PruneAsync(new VolumesPruneParameters
+        {
+            Filters = new Dictionary<string, IDictionary<string, bool>> { ["all"] = new Dictionary<string, bool> { ["false"] = true } },
+        }, ct).ConfigureAwait(false)).SpaceReclaimed);
+
     public Task RemoveContainerAsync(string id, CancellationToken ct) =>
         RunAsync(() => _client.Containers.RemoveContainerAsync(id, new ContainerRemoveParameters(), ct));
 
@@ -103,6 +124,42 @@ public sealed class DockerService : IDockerService
         RunAsync(() => _client.Images.DeleteImageAsync(reference, new ImageDeleteParameters(), ct));
 
     public void Dispose() => _client.Dispose();
+
+    private static async Task<T> RunAsync<T>(Func<Task<T>> action)
+    {
+        try
+        {
+            return await action().ConfigureAwait(false);
+        }
+        catch (DockerApiException ex)
+        {
+            throw new DockerOperationException(DockerOperationException.Describe(ex.ResponseBody, ex.Message), ex);
+        }
+    }
+
+    internal static DiskUsage ToDiskUsage(SystemDataUsageInfoResponse r)
+    {
+        // Older daemons answer with another shape, which arrives here as all nulls.
+        if (r.ImageUsage is null && r.ContainerUsage is null && r.VolumeUsage is null && r.BuildCacheUsage is null)
+            throw new DockerOperationException("This Docker daemon is too old to report disk usage (API 1.52 or newer is needed).", new NotSupportedException());
+
+        return new DiskUsage(
+            Line(r.ImageUsage?.TotalCount, r.ImageUsage?.TotalSize, r.ImageUsage?.Reclaimable),
+            Line(r.ContainerUsage?.TotalCount, r.ContainerUsage?.TotalSize, r.ContainerUsage?.Reclaimable),
+            Line(r.VolumeUsage?.TotalCount, r.VolumeUsage?.TotalSize, r.VolumeUsage?.Reclaimable),
+            Line(r.BuildCacheUsage?.TotalCount, r.BuildCacheUsage?.TotalSize, r.BuildCacheUsage?.Reclaimable));
+    }
+
+    // Docker reports -1 for sizes it could not work out.
+    internal static ImageInfo ToImageInfo(ImagesListResponse i) => new(
+        i.ID ?? "",
+        (i.RepoTags ?? []).Where(t => t != "<none>:<none>").ToList(),
+        Math.Max(0, i.Size),
+        new DateTimeOffset(DateTime.SpecifyKind(i.Created, DateTimeKind.Utc)),
+        i.Containers);
+
+    private static UsageLine Line(long? count, long? size, long? reclaimable) =>
+        new(Math.Max(0, count ?? 0), Math.Max(0, size ?? 0), Math.Max(0, reclaimable ?? 0));
 
     private static async Task RunAsync(Func<Task> action)
     {
