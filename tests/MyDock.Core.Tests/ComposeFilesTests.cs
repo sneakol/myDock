@@ -67,6 +67,10 @@ public class ComposeFilesTests
         Assert.Equal(["compose", "-p", "shop", verb], ComposeFiles.ProjectCommand("shop", action));
 
     [Fact]
+    public void Commands_for_compose_can_force_recreate() =>
+        Assert.Equal("--force-recreate", ComposeFiles.Commands("/p/compose.yml", null, recreate: true)[0][^1]);
+
+    [Fact]
     public void ProjectCommand_remove_stops_and_deletes_containers_only() =>
         Assert.Equal(["compose", "-p", "shop", "rm", "-f", "-s"], ComposeFiles.ProjectCommand("shop", ProjectAction.Remove));
 

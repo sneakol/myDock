@@ -116,6 +116,8 @@ public sealed partial class PanelViewModel : ObservableObject
 
         AssignGroups(active);
         AssignGroups(stopped);
+        foreach (var file in Files)
+            file.Track(_byId.Values);
 
         Sync(Active, active);
         Sync(Stopped, stopped);
@@ -168,7 +170,9 @@ public sealed partial class PanelViewModel : ObservableObject
         if (Files.Any(f => f.Path == path))
             return null;
 
-        Files.Add(new ComposeFileViewModel(path, _runner, _settings, _store, RemoveFile));
+        var file = new ComposeFileViewModel(path, _runner, _settings, _store, RemoveFile);
+        file.Track(_byId.Values);
+        Files.Add(file);
         _settings.ComposeFiles = Files.Select(f => f.Path).ToList();
         _store.Save(_settings);
         return null;

@@ -5,9 +5,9 @@ namespace MyDock.Core.Docker;
 /// <summary>Runs the docker CLI; the daemon API has no compose support.</summary>
 public sealed class ProcessComposeRunner : IComposeRunner
 {
-    public async Task RunAsync(string path, string? envFile, CancellationToken ct)
+    public async Task RunAsync(string path, string? envFile, CancellationToken ct, bool recreate = false)
     {
-        foreach (var args in ComposeFiles.Commands(path, envFile))
+        foreach (var args in ComposeFiles.Commands(path, envFile, recreate))
             await RunDockerAsync(args, Path.GetDirectoryName(Path.GetFullPath(path))!, ct);
     }
 

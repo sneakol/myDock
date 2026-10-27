@@ -44,8 +44,8 @@ public static class ComposeFiles
             .ToList();
     }
 
-    /// <summary>The docker invocations, in order, that bring <paramref name="path"/> up.</summary>
-    public static IReadOnlyList<IReadOnlyList<string>> Commands(string path, string? envFile)
+    /// <summary>The docker invocations, in order, that bring <paramref name="path"/> up; <paramref name="recreate"/> rebuilds the compose containers even when nothing changed.</summary>
+    public static IReadOnlyList<IReadOnlyList<string>> Commands(string path, string? envFile, bool recreate = false)
     {
         path = Path.GetFullPath(path);
         var kind = Detect(path) ?? throw new ArgumentException("Not a Dockerfile or compose file.", nameof(path));
@@ -56,6 +56,8 @@ public static class ComposeFiles
             if (envFile is not null)
                 up.AddRange(["--env-file", envFile]);
             up.AddRange(["up", "-d"]);
+            if (recreate)
+                up.Add("--force-recreate");
             return [up];
         }
 

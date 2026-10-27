@@ -14,9 +14,11 @@ public sealed partial class ComposeFileViewModel : ObservableObject
     private readonly Action<ComposeFileViewModel> _remove;
 
     [ObservableProperty] private IReadOnlyList<string> _envFiles = [];
+    [ObservableProperty] private string? _selectedEnv;
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(ProjectName), nameof(HasProject))]
-    private string? _selectedEnv;
+    [NotifyPropertyChangedFor(nameof(HasProject))]
+    private string? _projectName;
+    [ObservableProperty] private bool _isProjectRunning;
     [ObservableProperty] private bool _isBusy;
     [ObservableProperty] private string? _error;
 
@@ -34,11 +36,11 @@ public sealed partial class ComposeFileViewModel : ObservableObject
 
     public string Name => System.IO.Path.GetFileName(System.IO.Path.GetDirectoryName(Path)) + "/" + System.IO.Path.GetFileName(Path);
 
-    public string? ProjectName => ComposeFiles.ProjectName(Path, EnvPath);
-
     public bool HasProject => ProjectName is not null;
 
     private string? EnvPath => SelectedEnv is null ? null : System.IO.Path.Combine(System.IO.Path.GetDirectoryName(Path)!, SelectedEnv);
+
+    public bool IsCompose => ComposeFiles.Detect(Path) == ComposeFileKind.Compose;
 
     public bool HasEnvFiles => EnvFiles.Count > 0;
 
@@ -47,13 +49,17 @@ public sealed partial class ComposeFileViewModel : ObservableObject
     {
         EnvFiles = ComposeFiles.FindEnvFiles(Path).Select(System.IO.Path.GetFileName).ToList()!;
         OnPropertyChanged(nameof(HasEnvFiles));
-        OnPropertyChanged(nameof(ProjectName));
-        OnPropertyChanged(nameof(HasProject));
         SelectedEnv = _settings.EnvChoice.TryGetValue(Path, out var saved) && EnvFiles.Contains(saved) ? saved : EnvFiles.FirstOrDefault();
+        ProjectName = ComposeFiles.ProjectName(Path, EnvPath);
     }
+
+    /// <summary>Running when at least one container of the project is active, so a mixed project offers "stop" too.</summary>
+    public void Track(IEnumerable<ContainerViewModel> containers) =>
+        IsProjectRunning = ProjectName is { } project && containers.Any(c => c.IsActive && c.ComposeProject == project);
 
     partial void OnSelectedEnvChanged(string? value)
     {
+        ProjectName = ComposeFiles.ProjectName(Path, EnvPath);
         if (value is null || _settings.EnvChoice.GetValueOrDefault(Path) == value)
             return;
 
@@ -62,13 +68,21 @@ public sealed partial class ComposeFileViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private async Task RunAsync()
+    private Task RunAsync() => GuardAsync(() => _runner.RunAsync(Path, EnvPath, CancellationToken.None));
+
+    [RelayCommand]
+    private Task RecreateAsync() => GuardAsync(() => _runner.RunAsync(Path, EnvPath, CancellationToken.None, recreate: true));
+
+    [RelayCommand]
+    private Task StopAsync() => GuardAsync(() => _runner.RunProjectAsync(ProjectName!, ProjectAction.Stop, CancellationToken.None));
+
+    private async Task GuardAsync(Func<Task> action)
     {
         Error = null;
         IsBusy = true;
         try
         {
-            await _runner.RunAsync(Path, EnvPath, CancellationToken.None);
+            await action();
         }
         catch (Exception ex)
         {

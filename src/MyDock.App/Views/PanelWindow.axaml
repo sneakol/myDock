@@ -2,6 +2,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:MyDock.App.ViewModels"
         xmlns:v="using:MyDock.App.Views"
+        xmlns:c="using:MyDock.App.Controls"
         x:Class="MyDock.App.Views.PanelWindow"
         x:DataType="vm:PanelViewModel"
         Title="myDock"
@@ -173,7 +174,7 @@
             <ItemsControl.ItemTemplate>
               <DataTemplate>
                 <StackPanel Margin="14,6,8,6" Spacing="2" IsEnabled="{Binding !IsBusy}">
-                  <Grid ColumnDefinitions="*,Auto,Auto,Auto">
+                  <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto">
                     <StackPanel VerticalAlignment="Center" ToolTip.Tip="{Binding Path}">
                       <TextBlock Classes="name" Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
                       <TextBlock Classes="secondary" Text="{Binding ProjectName, StringFormat='Project: {0}'}"
@@ -181,10 +182,25 @@
                     </StackPanel>
                     <ComboBox Grid.Column="1" ItemsSource="{Binding EnvFiles}" SelectedItem="{Binding SelectedEnv}"
                               IsVisible="{Binding HasEnvFiles}" MinWidth="90" Margin="6,0" FontSize="11" />
-                    <Button Grid.Column="2" Classes="icon" Command="{Binding RunCommand}" ToolTip.Tip="Run">
+                    <c:ConfirmButton Grid.Column="2" Classes="icon confirm" Command="{Binding RecreateCommand}"
+                                     IsVisible="{Binding IsCompose}" ToolTip.Tip="Recreate all containers">
+                      <Panel>
+                        <PathIcon Data="{StaticResource IconRestart}" IsVisible="{Binding !$parent[c:ConfirmButton].IsArmed}" />
+                        <TextBlock Text="Recreate?" IsVisible="{Binding $parent[c:ConfirmButton].IsArmed}" />
+                      </Panel>
+                    </c:ConfirmButton>
+                    <Button Grid.Column="3" Classes="icon" Command="{Binding RunCommand}" ToolTip.Tip="Run"
+                            IsVisible="{Binding !IsProjectRunning}">
                       <PathIcon Data="{StaticResource IconPlay}" />
                     </Button>
-                    <Button Grid.Column="3" Classes="icon" Command="{Binding RemoveCommand}" ToolTip.Tip="Remove from list">
+                    <c:ConfirmButton Grid.Column="3" Classes="icon confirm" Command="{Binding StopCommand}"
+                                     IsVisible="{Binding IsProjectRunning}" ToolTip.Tip="Stop whole compose">
+                      <Panel>
+                        <PathIcon Data="{StaticResource IconStop}" IsVisible="{Binding !$parent[c:ConfirmButton].IsArmed}" />
+                        <TextBlock Text="Stop all?" IsVisible="{Binding $parent[c:ConfirmButton].IsArmed}" />
+                      </Panel>
+                    </c:ConfirmButton>
+                    <Button Grid.Column="4" Classes="icon" Command="{Binding RemoveCommand}" ToolTip.Tip="Remove from list">
                       <PathIcon Data="{StaticResource IconClose}" />
                     </Button>
                   </Grid>
