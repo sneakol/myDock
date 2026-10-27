@@ -29,7 +29,19 @@ public sealed partial class PanelViewModel : ObservableObject
     [ObservableProperty] private bool _hasStopped;
     [ObservableProperty] private string _stoppedHeader = "";
     [ObservableProperty] private bool _isPinned;
-    [ObservableProperty] private bool _isStoppedExpanded;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowStopped))]
+    private bool _isStoppedExpanded;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsFiltering), nameof(ShowStopped))]
+    private string _filterText = "";
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsFiltering), nameof(ShowStopped))]
+    private bool _onlyUnhealthy;
+
+    [ObservableProperty] private bool _noMatches;
     [ObservableProperty] private bool _startAtLogin = Autostart.IsEnabled;
 
     [ObservableProperty]
@@ -91,6 +103,11 @@ public sealed partial class PanelViewModel : ObservableObject
 
     public bool IsPermissionDenied => Connection == ConnectionState.PermissionDenied;
 
+    public bool IsFiltering => !string.IsNullOrWhiteSpace(FilterText) || OnlyUnhealthy;
+
+    // Matches among stopped containers must not hide behind the collapsed section.
+    public bool ShowStopped => IsStoppedExpanded || IsFiltering;
+
     public bool IsDeleting => PendingDelete is not null;
 
     public bool IsShowingLogs => Logs is not null;
@@ -119,8 +136,10 @@ public sealed partial class PanelViewModel : ObservableObject
         foreach (var id in _byId.Keys.Where(id => !seen.Contains(id)).ToList())
             _byId.Remove(id);
 
-        var active = OrderActive(_byId.Values.Where(c => c.IsActive));
-        var stopped = ComposeGrouping.Order(_byId.Values.Where(c => !c.IsActive), c => c.ComposeProject, c => c.Name);
+        var visible = _byId.Values.Where(c =>
+            ContainerFilter.Matches(FilterText, c.Name, c.Image, c.ComposeProject) && (!OnlyUnhealthy || c.IsUnhealthy)).ToList();
+        var active = OrderActive(visible.Where(c => c.IsActive));
+        var stopped = ComposeGrouping.Order(visible.Where(c => !c.IsActive), c => c.ComposeProject, c => c.Name);
 
         AssignGroups(active);
         AssignGroups(stopped);
@@ -130,11 +149,13 @@ public sealed partial class PanelViewModel : ObservableObject
         Sync(Active, active);
         Sync(Stopped, stopped);
 
-        IsEmpty = IsConnected && active.Count == 0;
+        var activeCount = _byId.Values.Count(c => c.IsActive);
+        IsEmpty = IsConnected && active.Count == 0 && (!IsFiltering || _byId.Count == 0);
+        NoMatches = IsConnected && IsFiltering && visible.Count == 0 && _byId.Count > 0;
         HasStopped = stopped.Count > 0;
         StoppedHeader = $"Stopped ({stopped.Count})";
         Summary = !IsConnected ? ""
-            : active.Count switch
+            : activeCount switch
             {
                 0 => "",
                 var n => $"{n} active",
@@ -162,6 +183,10 @@ public sealed partial class PanelViewModel : ObservableObject
         _settings.Pinned = value;
         _store.Save(_settings);
     }
+
+    partial void OnFilterTextChanged(string value) => Apply(_monitor.Current);
+
+    partial void OnOnlyUnhealthyChanged(bool value) => Apply(_monitor.Current);
 
     partial void OnIsStoppedExpandedChanged(bool value)
     {

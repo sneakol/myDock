@@ -78,6 +78,8 @@ public sealed partial class ContainerViewModel : ObservableObject
 
     public string? ComposeProject { get; private set; }
 
+    public bool IsUnhealthy { get; private set; }
+
     public bool IsComposeHeader => ShowGroupHeader && ComposeProject is not null;
 
     public bool IsPlainHeader => ShowGroupHeader && ComposeProject is null;
@@ -97,6 +99,7 @@ public sealed partial class ContainerViewModel : ObservableObject
         IsActive = info.IsActive;
         Indicator = IndicatorFor(info);
         ComposeProject = info.ComposeProject;
+        IsUnhealthy = info.Health == HealthState.Unhealthy;
         PortsText = info.Ports is null ? null : "Ports: " + info.Ports;
         NetworksText = info.Networks is null ? null : "Network: " + info.Networks;
 
