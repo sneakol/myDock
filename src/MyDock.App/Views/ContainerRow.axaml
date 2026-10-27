@@ -6,9 +6,34 @@
              x:Class="MyDock.App.Views.ContainerRow"
              x:DataType="vm:ContainerViewModel">
   <StackPanel>
-    <TextBlock Classes="group" Text="{Binding GroupHeader}" IsVisible="{Binding ShowGroupHeader}" />
+    <TextBlock Classes="group" Text="{Binding GroupHeader}" IsVisible="{Binding IsPlainHeader}" />
 
-    <StackPanel Margin="14,8,10,10" Spacing="7">
+    <Grid ColumnDefinitions="*,Auto" Margin="6,6,10,0" IsVisible="{Binding IsComposeHeader}">
+      <Button Classes="icon" Command="{Binding ToggleGroupCommand}" HorizontalAlignment="Left"
+              ToolTip.Tip="Expand / collapse compose">
+        <StackPanel Orientation="Horizontal" Spacing="4">
+          <PathIcon Data="{StaticResource IconChevron}" Classes.expanded="{Binding !IsGroupCollapsed}">
+            <PathIcon.Styles>
+              <Style Selector="PathIcon.expanded">
+                <Setter Property="RenderTransform" Value="rotate(90deg)" />
+              </Style>
+            </PathIcon.Styles>
+          </PathIcon>
+          <TextBlock Classes="group" Margin="0" VerticalAlignment="Center" Text="{Binding GroupHeader}" />
+          <TextBlock Classes="group" Margin="0" VerticalAlignment="Center"
+                     Text="{Binding GroupCount, StringFormat='· {0}'}" />
+        </StackPanel>
+      </Button>
+      <c:ConfirmButton Grid.Column="1" Classes="icon confirm" Command="{Binding StopGroupCommand}"
+                       IsVisible="{Binding IsActive}" ToolTip.Tip="Stop whole compose">
+        <Panel>
+          <PathIcon Data="{StaticResource IconStop}" IsVisible="{Binding !$parent[c:ConfirmButton].IsArmed}" />
+          <TextBlock Text="Stop all?" IsVisible="{Binding $parent[c:ConfirmButton].IsArmed}" />
+        </Panel>
+      </c:ConfirmButton>
+    </Grid>
+
+    <StackPanel Margin="14,8,10,10" Spacing="7" IsVisible="{Binding !IsGroupCollapsed}">
       <Grid ColumnDefinitions="Auto,*,Auto" ToolTip.Tip="{Binding Details}">
         <Ellipse Width="9" Height="9" Margin="0,0,9,0" VerticalAlignment="Center"
                  Fill="{Binding Indicator, Converter={x:Static v:Converters.IndicatorBrush}}" />
@@ -78,6 +103,6 @@
                  IsVisible="{Binding Error, Converter={x:Static ObjectConverters.IsNotNull}}" />
     </StackPanel>
 
-    <Border Height="1" Background="{DynamicResource Divider}" />
+    <Border Height="1" Background="{DynamicResource Divider}" IsVisible="{Binding !IsGroupCollapsed}" />
   </StackPanel>
 </UserControl>

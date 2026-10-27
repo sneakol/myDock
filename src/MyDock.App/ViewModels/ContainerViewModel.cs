@@ -21,6 +21,8 @@ public sealed partial class ContainerViewModel : ObservableObject
 
     private readonly ContainerMonitor _monitor;
     private readonly Action<ContainerViewModel> _requestDelete;
+    private readonly Action<string> _toggleGroup;
+    private readonly Func<string, Task> _stopGroup;
     private readonly Queue<double> _cpuSamples = new(HistoryLength);
     private ContainerStats? _lastStats;
 
@@ -38,12 +40,24 @@ public sealed partial class ContainerViewModel : ObservableObject
     [ObservableProperty] private bool _isBusy;
     [ObservableProperty] private string? _error;
     [ObservableProperty] private string? _groupHeader;
-    [ObservableProperty] private bool _showGroupHeader;
+    [ObservableProperty] private bool _isGroupCollapsed;
+    [ObservableProperty] private int _groupCount;
 
-    public ContainerViewModel(ContainerMonitor monitor, ContainerSnapshot snapshot, Action<ContainerViewModel> requestDelete)
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsComposeHeader), nameof(IsPlainHeader))]
+    private bool _showGroupHeader;
+
+    public ContainerViewModel(
+        ContainerMonitor monitor,
+        ContainerSnapshot snapshot,
+        Action<ContainerViewModel> requestDelete,
+        Action<string> toggleGroup,
+        Func<string, Task> stopGroup)
     {
         _monitor = monitor;
         _requestDelete = requestDelete;
+        _toggleGroup = toggleGroup;
+        _stopGroup = stopGroup;
         Id = snapshot.Info.Id;
         Update(snapshot);
     }
@@ -55,6 +69,10 @@ public sealed partial class ContainerViewModel : ObservableObject
     public string ImageId { get; private set; } = "";
 
     public string? ComposeProject { get; private set; }
+
+    public bool IsComposeHeader => ShowGroupHeader && ComposeProject is not null;
+
+    public bool IsPlainHeader => ShowGroupHeader && ComposeProject is null;
 
     public double CpuPercent => _lastStats?.CpuPercent ?? 0;
 
@@ -117,6 +135,12 @@ public sealed partial class ContainerViewModel : ObservableObject
 
     [RelayCommand]
     private void Delete() => _requestDelete(this);
+
+    [RelayCommand]
+    private void ToggleGroup() => _toggleGroup(ComposeProject!);
+
+    [RelayCommand]
+    private Task StopGroupAsync() => _stopGroup(ComposeProject!);
 
     private async Task RunAsync(Func<string, CancellationToken, Task> action)
     {

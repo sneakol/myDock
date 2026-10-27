@@ -105,21 +105,17 @@ public sealed partial class PanelViewModel : ObservableObject
             if (_byId.TryGetValue(container.Info.Id, out var existing))
                 existing.Update(container);
             else
-                _byId[container.Info.Id] = new ContainerViewModel(_monitor, container, RequestDelete);
+                _byId[container.Info.Id] = new ContainerViewModel(_monitor, container, RequestDelete, ToggleGroup, StopGroupAsync);
         }
 
         foreach (var id in _byId.Keys.Where(id => !seen.Contains(id)).ToList())
             _byId.Remove(id);
 
         var active = OrderActive(_byId.Values.Where(c => c.IsActive));
-        var stopped = _byId.Values
-            .Where(c => !c.IsActive)
-            .OrderBy(c => c.Name, StringComparer.OrdinalIgnoreCase)
-            .ToList();
+        var stopped = ComposeGrouping.Order(_byId.Values.Where(c => !c.IsActive), c => c.ComposeProject, c => c.Name);
 
-        AssignGroupHeaders(active);
-        foreach (var container in stopped)
-            container.ShowGroupHeader = false;
+        AssignGroups(active);
+        AssignGroups(stopped);
 
         Sync(Active, active);
         Sync(Stopped, stopped);
@@ -275,32 +271,41 @@ public sealed partial class PanelViewModel : ObservableObject
         });
     }
 
-    private List<ContainerViewModel> OrderActive(IEnumerable<ContainerViewModel> containers)
-    {
-        var ordered = Sort switch
+    private List<ContainerViewModel> OrderActive(IEnumerable<ContainerViewModel> containers) =>
+        ComposeGrouping.Order(containers, c => c.ComposeProject, c => c.Name, Sort switch
         {
-            SortMode.Cpu => containers.OrderByDescending(c => c.CpuPercent),
-            SortMode.Memory => containers.OrderByDescending(c => c.MemoryUsed),
-            _ => containers
-                .OrderBy(c => c.ComposeProject is null)
-                .ThenBy(c => c.ComposeProject, StringComparer.OrdinalIgnoreCase),
-        };
-        return ordered.ThenBy(c => c.Name, StringComparer.OrdinalIgnoreCase).ToList();
-    }
+            SortMode.Cpu => c => c.CpuPercent,
+            SortMode.Memory => c => c.MemoryUsed,
+            _ => null,
+        });
 
-    // Compose projects get a header when sorting by name; other orders interleave them, so headers would lie.
-    private void AssignGroupHeaders(List<ContainerViewModel> active)
+    // The list is already grouped: the first row of each project carries the header, and every row knows if its group is collapsed.
+    private void AssignGroups(List<ContainerViewModel> list)
     {
-        var grouped = Sort == SortMode.Name && active.Any(c => c.ComposeProject is not null);
+        var grouped = list.Any(c => c.ComposeProject is not null);
+        var counts = list.GroupBy(c => c.ComposeProject ?? "").ToDictionary(g => g.Key, g => g.Count());
         string? previous = null;
-        foreach (var container in active)
+        foreach (var container in list)
         {
             var header = grouped ? container.ComposeProject ?? UngroupedHeader : null;
             container.GroupHeader = header;
             container.ShowGroupHeader = header is not null && header != previous;
+            container.GroupCount = counts[container.ComposeProject ?? ""];
+            container.IsGroupCollapsed = container.ComposeProject is { } p && _settings.CollapsedProjects.Contains(p);
             previous = header;
         }
     }
+
+    private void ToggleGroup(string project)
+    {
+        if (!_settings.CollapsedProjects.Remove(project))
+            _settings.CollapsedProjects.Add(project);
+        _store.Save(_settings);
+        Apply(_monitor.Current);
+    }
+
+    private Task StopGroupAsync(string project) => Task.WhenAll(
+        Active.Where(c => c.ComposeProject == project).ToList().Select(c => c.StopCommand.ExecuteAsync(null)));
 
     /// <summary>Makes <paramref name="target"/> match <paramref name="desired"/> with as few changes as possible, so rows keep their state.</summary>
     private static void Sync(ObservableCollection<ContainerViewModel> target, List<ContainerViewModel> desired)
