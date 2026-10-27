@@ -11,6 +11,7 @@ public enum DiskTab
     Overview,
     Images,
     Volumes,
+    Networks,
 }
 
 public sealed record DiskRow(string Name, string Count, string Size, string Reclaimable);
@@ -23,9 +24,10 @@ public sealed partial class DiskViewModel : ObservableObject
     [ObservableProperty] private IReadOnlyList<DiskRow> _rows = [];
     [ObservableProperty] private IReadOnlyList<ImageRowViewModel> _images = [];
     [ObservableProperty] private IReadOnlyList<VolumeRowViewModel> _volumes = [];
+    [ObservableProperty] private IReadOnlyList<NetworkRowViewModel> _networks = [];
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsOverview), nameof(IsImages), nameof(IsVolumes))]
+    [NotifyPropertyChangedFor(nameof(IsOverview), nameof(IsImages), nameof(IsVolumes), nameof(IsNetworks))]
     private DiskTab _tab;
     [ObservableProperty] private bool _isBusy;
     [ObservableProperty] private string? _error;
@@ -43,11 +45,14 @@ public sealed partial class DiskViewModel : ObservableObject
 
     public bool IsVolumes => Tab == DiskTab.Volumes;
 
+    public bool IsNetworks => Tab == DiskTab.Networks;
+
     [RelayCommand]
     private Task RefreshAsync() => GuardAsync(Tab switch
     {
         DiskTab.Images => LoadImagesAsync,
         DiskTab.Volumes => LoadVolumesAsync,
+        DiskTab.Networks => LoadNetworksAsync,
         _ => LoadAsync,
     });
 
@@ -64,6 +69,20 @@ public sealed partial class DiskViewModel : ObservableObject
         await _monitor.DeleteVolumeAsync(row.Volume);
         await LoadVolumesAsync();
     });
+
+    // The daemon refuses a network that containers are still attached to, and the built-in ones always.
+    private Task DeleteNetworkAsync(NetworkRowViewModel row) => GuardAsync(async () =>
+    {
+        await _monitor.DeleteNetworkAsync(row.Network);
+        await LoadNetworksAsync();
+    });
+
+    private async Task LoadNetworksAsync() =>
+        Networks = (await _monitor.ListNetworksAsync())
+            .OrderBy(n => n.IsBuiltIn)
+            .ThenBy(n => n.Name, StringComparer.OrdinalIgnoreCase)
+            .Select(n => new NetworkRowViewModel(n, _monitor.ContainersOnNetwork(n.Name), DeleteNetworkAsync))
+            .ToList();
 
     private async Task LoadVolumesAsync() =>
         Volumes = (await _monitor.ListVolumesAsync())

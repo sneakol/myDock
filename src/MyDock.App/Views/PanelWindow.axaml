@@ -284,7 +284,7 @@
       <!-- Disk usage and prunes: an overlay like the settings. -->
       <Border Grid.RowSpan="4" Background="{DynamicResource PanelBackground}" IsVisible="{Binding IsShowingDisk}">
         <Grid RowDefinitions="Auto,Auto,*" DataContext="{Binding Disk}" x:DataType="vm:DiskViewModel">
-          <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto,Auto" Margin="14,8,6,8">
+          <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto,Auto,Auto" Margin="14,8,6,8">
             <TextBlock Classes="title" Text="Disk" VerticalAlignment="Center" />
             <Button Grid.Column="1" Classes="link" Content="Overview" Command="{Binding SelectTabCommand}"
                     CommandParameter="{x:Static vm:DiskTab.Overview}" IsEnabled="{Binding !IsOverview}" />
@@ -292,8 +292,12 @@
                     CommandParameter="{x:Static vm:DiskTab.Images}" IsEnabled="{Binding !IsImages}" />
             <Button Grid.Column="3" Classes="link" Content="Volumes" Command="{Binding SelectTabCommand}"
                     CommandParameter="{x:Static vm:DiskTab.Volumes}" IsEnabled="{Binding !IsVolumes}" />
-            <Button Grid.Column="4" Classes="link" Content="Refresh" Command="{Binding RefreshCommand}" IsEnabled="{Binding !IsBusy}" />
-            <Button Grid.Column="5" Classes="icon" Click="OnCloseDisk" ToolTip.Tip="Close">
+            <Button Grid.Column="4" Classes="link" Content="Networks" Command="{Binding SelectTabCommand}"
+                    CommandParameter="{x:Static vm:DiskTab.Networks}" IsEnabled="{Binding !IsNetworks}" />
+            <Button Grid.Column="5" Classes="icon" Command="{Binding RefreshCommand}" IsEnabled="{Binding !IsBusy}" ToolTip.Tip="Refresh">
+              <PathIcon Data="{StaticResource IconRestart}" />
+            </Button>
+            <Button Grid.Column="6" Classes="icon" Click="OnCloseDisk" ToolTip.Tip="Close">
               <PathIcon Data="{StaticResource IconClose}" />
             </Button>
           </Grid>
@@ -368,6 +372,30 @@
                         <Panel>
                           <PathIcon Data="{StaticResource IconTrash}" IsVisible="{Binding !$parent[c:ConfirmButton].IsArmed}" />
                           <TextBlock Text="Delete data?" IsVisible="{Binding $parent[c:ConfirmButton].IsArmed}" />
+                        </Panel>
+                      </c:ConfirmButton>
+                    </Grid>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </ScrollViewer>
+
+            <ScrollViewer MaxHeight="420" HorizontalScrollBarVisibility="Disabled" IsVisible="{Binding IsNetworks}">
+              <ItemsControl ItemsSource="{Binding Networks}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:NetworkRowViewModel">
+                    <Grid ColumnDefinitions="*,Auto,28" ColumnSpacing="8" Margin="0,4">
+                      <StackPanel VerticalAlignment="Center">
+                        <TextBlock Classes="name" Text="{Binding Title}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Title}" />
+                        <TextBlock Classes="secondary" Text="{Binding Subtitle}" TextTrimming="CharacterEllipsis" />
+                      </StackPanel>
+                      <TextBlock Grid.Column="1" Classes="value small" VerticalAlignment="Center" Text="{Binding UsedBy}" />
+                      <c:ConfirmButton Grid.Column="2" Classes="icon confirm" Command="{Binding DeleteCommand}"
+                                       IsVisible="{Binding CanDelete}"
+                                       ToolTip.Tip="Delete the network (the daemon refuses one that containers are attached to)">
+                        <Panel>
+                          <PathIcon Data="{StaticResource IconTrash}" IsVisible="{Binding !$parent[c:ConfirmButton].IsArmed}" />
+                          <TextBlock Text="Delete?" IsVisible="{Binding $parent[c:ConfirmButton].IsArmed}" />
                         </Panel>
                       </c:ConfirmButton>
                     </Grid>

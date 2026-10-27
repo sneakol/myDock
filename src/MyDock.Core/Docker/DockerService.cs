@@ -121,6 +121,15 @@ public sealed class DockerService : IDockerService
     public Task RemoveVolumeAsync(string name, CancellationToken ct) =>
         RunAsync(() => _client.Volumes.RemoveAsync(name, false, ct));
 
+    public Task<IReadOnlyList<DockerNetwork>> ListNetworksAsync(CancellationToken ct) =>
+        RunAsync<IReadOnlyList<DockerNetwork>>(async () =>
+            (await _client.Networks.ListNetworksAsync(new NetworksListParameters(), ct).ConfigureAwait(false))
+            .Select(ToNetwork)
+            .ToList());
+
+    public Task RemoveNetworkAsync(string id, CancellationToken ct) =>
+        RunAsync(() => _client.Networks.DeleteNetworkAsync(id, ct));
+
     public Task<long> PruneImagesAsync(CancellationToken ct) =>
         RunAsync(async () => (long)(await _client.Images.PruneImagesAsync(new ImagesPruneParameters(), ct).ConfigureAwait(false)).SpaceReclaimed);
 
@@ -164,6 +173,13 @@ public sealed class DockerService : IDockerService
             Line(r.VolumeUsage?.TotalCount, r.VolumeUsage?.TotalSize, r.VolumeUsage?.Reclaimable),
             Line(r.BuildCacheUsage?.TotalCount, r.BuildCacheUsage?.TotalSize, r.BuildCacheUsage?.Reclaimable));
     }
+
+    internal static DockerNetwork ToNetwork(NetworkResponse n) => new(
+        n.ID ?? "",
+        n.Name ?? "",
+        n.Driver ?? "",
+        n.Scope ?? "",
+        new DateTimeOffset(DateTime.SpecifyKind(n.Created, DateTimeKind.Utc)));
 
     internal static DockerVolume ToVolumeInfo(Volume v) =>
         new(v.Name ?? "", v.Driver ?? "", Math.Max(0, v.UsageData?.Size ?? 0), v.UsageData?.RefCount ?? -1);

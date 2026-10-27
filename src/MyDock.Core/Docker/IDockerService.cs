@@ -47,6 +47,11 @@ public interface IDockerService : IDisposable
     /// <summary>Removes a volume and its data; the daemon refuses one that a container still mounts.</summary>
     Task RemoveVolumeAsync(string name, CancellationToken ct);
 
+    Task<IReadOnlyList<DockerNetwork>> ListNetworksAsync(CancellationToken ct);
+
+    /// <summary>Removes a network; the daemon refuses a built-in one and one that containers are still attached to.</summary>
+    Task RemoveNetworkAsync(string id, CancellationToken ct);
+
     /// <summary>Removes dangling (untagged, unused) images; returns the bytes freed.</summary>
     Task<long> PruneImagesAsync(CancellationToken ct);
 

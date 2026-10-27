@@ -337,6 +337,31 @@ public sealed class ContainerMonitorTests : IAsyncDisposable
     }
 
     [Fact]
+    public async Task Networks_are_deleted_by_id_but_built_in_ones_never()
+    {
+        await _monitor.DeleteNetworkAsync(new DockerNetwork("n1", "shop_default", "bridge", "local", DateTimeOffset.UnixEpoch));
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => _monitor.DeleteNetworkAsync(new DockerNetwork("n2", "bridge", "bridge", "local", DateTimeOffset.UnixEpoch)));
+
+        Assert.Equal(["rmnet n1"], _docker.Actions);
+    }
+
+    [Fact]
+    public async Task Counts_the_containers_on_a_user_defined_network()
+    {
+        _docker.Set(
+            FakeDocker.Container("a") with { Networks = "shop_default, other" },
+            FakeDocker.Container("b") with { Networks = "other" },
+            FakeDocker.Container("c"));
+        _monitor.Start();
+        await Connected();
+
+        Assert.Equal(1, _monitor.ContainersOnNetwork("shop_default"));
+        Assert.Equal(2, _monitor.ContainersOnNetwork("other"));
+        Assert.Equal(0, _monitor.ContainersOnNetwork("shop"));
+    }
+
+    [Fact]
     public async Task Actions_are_forwarded_to_docker()
     {
         await _monitor.StartContainerAsync("a");

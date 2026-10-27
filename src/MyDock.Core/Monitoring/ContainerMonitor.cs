@@ -136,6 +136,17 @@ public sealed class ContainerMonitor : IAsyncDisposable
 
     public Task DeleteVolumeAsync(DockerVolume volume, CancellationToken ct = default) => _docker.RemoveVolumeAsync(volume.Name, ct);
 
+    public Task<IReadOnlyList<DockerNetwork>> ListNetworksAsync(CancellationToken ct = default) => _docker.ListNetworksAsync(ct);
+
+    /// <summary>How many known containers are on the user-defined network <paramref name="name"/>; the built-in ones are not tracked.</summary>
+    public int ContainersOnNetwork(string name) =>
+        Current.Containers.Count(c => c.Info.Networks?.Split(", ").Contains(name) == true);
+
+    public Task DeleteNetworkAsync(DockerNetwork network, CancellationToken ct = default) =>
+        network.IsBuiltIn
+            ? throw new InvalidOperationException($"{network.Name} is a built-in network and cannot be removed.")
+            : _docker.RemoveNetworkAsync(network.Id, ct);
+
     public Task<long> PruneImagesAsync(CancellationToken ct = default) => _docker.PruneImagesAsync(ct);
 
     public Task<long> PruneVolumesAsync(CancellationToken ct = default) => _docker.PruneVolumesAsync(ct);

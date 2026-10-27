@@ -185,6 +185,23 @@ public sealed class DockerServiceMappingTests
     }
 
     [Fact]
+    public void Maps_a_network_and_knows_the_built_in_ones()
+    {
+        var network = DockerService.ToNetwork(new NetworkResponse
+        {
+            ID = "abc",
+            Name = "shop_default",
+            Driver = "bridge",
+            Scope = "local",
+            Created = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc),
+        });
+
+        Assert.Equal(new DockerNetwork("abc", "shop_default", "bridge", "local", new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero)), network);
+        Assert.False(network.IsBuiltIn);
+        Assert.All(new[] { "bridge", "host", "none" }, name => Assert.True(network with { Name = name } is { IsBuiltIn: true }));
+    }
+
+    [Fact]
     public void Disk_usage_in_an_unknown_shape_is_an_error() =>
         Assert.Throws<DockerOperationException>(() => DockerService.ToDiskUsage(new SystemDataUsageInfoResponse()));
 
