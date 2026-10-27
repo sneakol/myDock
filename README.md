@@ -29,6 +29,21 @@ packaging/install.sh --uninstall # remove everything, except the settings
 The app ends up in `~/.local/share/mydock`, with the `mydock` command in `~/.local/bin` and an entry in the
 applications menu. To start it at login: tray icon menu → *Start at login*.
 
+### Debian / Ubuntu package
+
+```bash
+packaging/build-deb.sh [version]            # builds dist/mydock_<version>_<arch>.deb (default version 0.1.0)
+sudo apt install ./dist/mydock_0.1.0_amd64.deb
+sudo apt remove mydock
+```
+
+The package installs the app in `/opt/mydock`, the `mydock` command in `/usr/bin` and the menu entry and icon system-wide,
+and pulls in the libraries it needs. It recommends Docker's CLI (compose and the shell button), `libnotify-bin`
+(notifications) and the AppIndicator extension. Settings stay in `~/.config/mydock`. If you also used `install.sh`,
+remove that copy first (`packaging/install.sh --uninstall`), or it shadows the packaged command. Quit a running
+instance (`mydock --quit`) before upgrading or removing the package; if you enabled *Start at login*, delete
+`~/.config/autostart/mydock.desktop` after removing it. The package has no copyright file yet because the project has no license.
+
 ## Usage
 
 | Command | Effect |
