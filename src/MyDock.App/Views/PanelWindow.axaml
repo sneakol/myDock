@@ -1,0 +1,203 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:MyDock.App.ViewModels"
+        xmlns:v="using:MyDock.App.Views"
+        x:Class="MyDock.App.Views.PanelWindow"
+        x:DataType="vm:PanelViewModel"
+        Title="myDock"
+        Width="416"
+        SizeToContent="Height"
+        CanResize="False"
+        WindowDecorations="None"
+        ShowInTaskbar="False"
+        Topmost="True"
+        WindowStartupLocation="Manual"
+        Background="Transparent"
+        TransparencyLevelHint="Transparent"
+        FontSize="13">
+  <Window.Styles>
+    <Style Selector="TextBlock.title">
+      <Setter Property="FontSize" Value="14" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style Selector="TextBlock.name">
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style Selector="TextBlock.secondary, TextBlock.label, TextBlock.group">
+      <Setter Property="FontSize" Value="11" />
+      <Setter Property="Foreground" Value="{DynamicResource TextSecondary}" />
+    </Style>
+    <Style Selector="TextBlock.group">
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Margin" Value="14,10,14,0" />
+    </Style>
+    <Style Selector="TextBlock.value">
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="FontFeatures" Value="+tnum" />
+      <Setter Property="HorizontalAlignment" Value="Right" />
+    </Style>
+    <Style Selector="TextBlock.value.small">
+      <Setter Property="FontSize" Value="11" />
+      <Setter Property="Foreground" Value="{DynamicResource TextSecondary}" />
+    </Style>
+    <Style Selector="TextBlock.error">
+      <Setter Property="FontSize" Value="11" />
+      <Setter Property="Foreground" Value="{DynamicResource Danger}" />
+    </Style>
+    <Style Selector="Border.chart">
+      <Setter Property="Height" Value="22" />
+      <Setter Property="Margin" Value="0,3,0,4" />
+    </Style>
+
+    <Style Selector="ProgressBar.meter">
+      <Setter Property="MinHeight" Value="5" />
+      <Setter Property="Height" Value="5" />
+      <Setter Property="MinWidth" Value="0" />
+      <Setter Property="CornerRadius" Value="3" />
+      <Setter Property="Foreground" Value="{DynamicResource Accent}" />
+      <Setter Property="Background" Value="{DynamicResource Track}" />
+    </Style>
+    <Style Selector="ProgressBar.busy">
+      <Setter Property="MinHeight" Value="2" />
+      <Setter Property="Height" Value="2" />
+      <Setter Property="MinWidth" Value="0" />
+      <Setter Property="Foreground" Value="{DynamicResource Accent}" />
+      <Setter Property="Background" Value="Transparent" />
+    </Style>
+
+    <Style Selector="Button.icon, ToggleButton.icon">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Padding" Value="7" />
+      <Setter Property="MinWidth" Value="28" />
+      <Setter Property="MinHeight" Value="28" />
+      <Setter Property="CornerRadius" Value="7" />
+      <Setter Property="FontSize" Value="11" />
+      <Setter Property="Foreground" Value="{DynamicResource TextSecondary}" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Button.icon PathIcon, ToggleButton.icon PathIcon">
+      <Setter Property="Width" Value="14" />
+      <Setter Property="Height" Value="14" />
+    </Style>
+    <Style Selector="Button.icon:pointerover /template/ ContentPresenter#PART_ContentPresenter, ToggleButton.icon:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource Hover}" />
+      <Setter Property="Foreground" Value="{DynamicResource TextPrimary}" />
+    </Style>
+    <Style Selector="ToggleButton.icon:checked /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource AccentFill}" />
+      <Setter Property="Foreground" Value="{DynamicResource Accent}" />
+    </Style>
+    <Style Selector="Button.confirm:armed /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource Danger}" />
+      <Setter Property="Foreground" Value="White" />
+    </Style>
+    <Style Selector="Button.link">
+      <Setter Property="Padding" Value="8,3" />
+      <Setter Property="FontSize" Value="11" />
+      <Setter Property="CornerRadius" Value="6" />
+    </Style>
+  </Window.Styles>
+
+  <Border Margin="8" CornerRadius="14" ClipToBounds="True"
+          Background="{DynamicResource PanelBackground}"
+          BorderBrush="{DynamicResource PanelBorder}" BorderThickness="1"
+          BoxShadow="0 3 10 0 #38000000"
+          TextElement.Foreground="{DynamicResource TextPrimary}">
+    <Grid RowDefinitions="Auto,Auto,*">
+
+      <!-- Header: also the handle to drag the panel around. -->
+      <Border x:Name="Header" Background="Transparent" Padding="14,8,8,8"
+              BorderBrush="{DynamicResource Divider}" BorderThickness="0,0,0,1">
+        <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto">
+          <TextBlock Classes="title" Text="myDock" VerticalAlignment="Center" />
+          <TextBlock Grid.Column="1" Classes="secondary" Text="{Binding Summary}"
+                     Margin="10,1,0,0" VerticalAlignment="Center" />
+          <Button Grid.Column="2" Classes="icon" Command="{Binding CycleSortCommand}"
+                  IsVisible="{Binding IsConnected}"
+                  ToolTip.Tip="Cambia ordinamento: nome, CPU, RAM">
+            <TextBlock>
+              <Run Text="Ordine:" /> <Run Text="{Binding SortLabel}" />
+            </TextBlock>
+          </Button>
+          <ToggleButton Grid.Column="3" Classes="icon" IsChecked="{Binding IsPinned}"
+                        ToolTip.Tip="Tieni aperto quando perde il focus">
+            <PathIcon Data="{StaticResource IconPin}" />
+          </ToggleButton>
+          <Button Grid.Column="4" Classes="icon" Command="{Binding HideCommand}" ToolTip.Tip="Nascondi">
+            <PathIcon Data="{StaticResource IconClose}" />
+          </Button>
+        </Grid>
+      </Border>
+
+      <!-- Connection state -->
+      <StackPanel Grid.Row="1">
+        <TextBlock Classes="secondary" Margin="14,14" Text="Connessione a Docker…"
+                   IsVisible="{Binding IsConnecting}" />
+
+        <Border Background="{DynamicResource BannerBackground}" Padding="14,12"
+                IsVisible="{Binding IsUnavailable}">
+          <StackPanel Spacing="4">
+            <TextBlock Classes="name" Text="Docker non raggiungibile" />
+            <TextBlock Classes="secondary" TextWrapping="Wrap">
+              <Run Text="Il demone non risponde su" /> <Run Text="{Binding Endpoint}" /><Run Text=". Nuovo tentativo in corso…" />
+            </TextBlock>
+          </StackPanel>
+        </Border>
+
+        <Border Background="{DynamicResource BannerBackground}" Padding="14,12"
+                IsVisible="{Binding IsPermissionDenied}">
+          <StackPanel Spacing="6">
+            <TextBlock Classes="name" Text="Permesso negato sul socket Docker" />
+            <TextBlock Classes="secondary" TextWrapping="Wrap"
+                       Text="Aggiungi il tuo utente al gruppo docker, poi esci e rientra nella sessione:" />
+            <Grid ColumnDefinitions="*,Auto">
+              <SelectableTextBlock FontFamily="monospace" FontSize="12" VerticalAlignment="Center"
+                                   Text="{Binding FixCommand}" />
+              <Button Grid.Column="1" Classes="link" Content="Copia" Click="OnCopyFixCommand" />
+            </Grid>
+          </StackPanel>
+        </Border>
+      </StackPanel>
+
+      <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+        <StackPanel>
+          <TextBlock Classes="secondary" Margin="14,18" HorizontalAlignment="Center"
+                     Text="Nessun container attivo" IsVisible="{Binding IsEmpty}" />
+
+          <ItemsControl ItemsSource="{Binding Active}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate>
+                <v:ContainerRow />
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+
+          <StackPanel IsVisible="{Binding HasStopped}">
+            <Button Classes="icon" Command="{Binding ToggleStoppedCommand}"
+                    HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Margin="6,4">
+              <StackPanel Orientation="Horizontal" Spacing="4">
+                <PathIcon Data="{StaticResource IconChevron}" Classes.expanded="{Binding IsStoppedExpanded}">
+                  <PathIcon.Styles>
+                    <Style Selector="PathIcon.expanded">
+                      <Setter Property="RenderTransform" Value="rotate(90deg)" />
+                    </Style>
+                  </PathIcon.Styles>
+                </PathIcon>
+                <TextBlock Text="{Binding StoppedHeader}" VerticalAlignment="Center" />
+              </StackPanel>
+            </Button>
+            <ItemsControl ItemsSource="{Binding Stopped}" IsVisible="{Binding IsStoppedExpanded}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                  <v:ContainerRow />
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </StackPanel>
+        </StackPanel>
+      </ScrollViewer>
+    </Grid>
+  </Border>
+</Window>

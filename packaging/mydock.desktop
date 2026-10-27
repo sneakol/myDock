@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=myDock
+GenericName=Monitor dei container Docker
+Comment=Container Docker attivi e risorse utilizzate
+Exec=@EXEC@
+Icon=mydock
+Terminal=false
+Categories=System;Monitor;
+StartupWMClass=mydock
+StartupNotify=false

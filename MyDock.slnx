@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/MyDock.App/MyDock.App.csproj" />
+    <Project Path="src/MyDock.Core/MyDock.Core.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/MyDock.Core.Tests/MyDock.Core.Tests.csproj" />
+  </Folder>
+</Solution>

@@ -1,0 +1,137 @@
+using System.Runtime.CompilerServices;
+using System.Threading.Channels;
+using MyDock.Core.Docker;
+using MyDock.Core.Models;
+
+namespace MyDock.Core.Tests;
+
+internal sealed class FakeDocker : IDockerService
+{
+    private readonly Lock _gate = new();
+    private readonly Dictionary<string, Channel<StatsSample>> _stats = [];
+    private List<ContainerInfo> _containers = [];
+    private Channel<ContainerEvent> _events = Channel.CreateUnbounded<ContainerEvent>();
+    private Exception? _failure;
+    private int _listCalls;
+
+    public int ListCalls => Volatile.Read(ref _listCalls);
+
+    public List<string> Actions { get; } = [];
+
+    public string[] OpenStatsStreams
+    {
+        get
+        {
+            lock (_gate)
+                return [.. _stats.Keys.Order()];
+        }
+    }
+
+    public static ContainerInfo Container(string id, ContainerState state = ContainerState.Running, string? name = null) =>
+        new(id, name ?? id, "image:latest", state, HealthState.None, state.ToString(), DateTimeOffset.UnixEpoch, null);
+
+    public void Set(params ContainerInfo[] containers)
+    {
+        lock (_gate)
+            _containers = [.. containers];
+    }
+
+    public void Raise(string action, string id = "any")
+    {
+        lock (_gate)
+            _events.Writer.TryWrite(new ContainerEvent(action, id));
+    }
+
+    public void PushStats(string id, StatsSample sample)
+    {
+        lock (_gate)
+            Assert.True(_stats[id].Writer.TryWrite(sample));
+    }
+
+    public void EndStats(string id)
+    {
+        lock (_gate)
+            _stats[id].Writer.TryComplete();
+    }
+
+    public void Break(Exception failure)
+    {
+        lock (_gate)
+        {
+            _failure = failure;
+            _events.Writer.TryComplete(failure);
+        }
+    }
+
+    public void Restore()
+    {
+        lock (_gate)
+        {
+            _events = Channel.CreateUnbounded<ContainerEvent>();
+            _failure = null;
+        }
+    }
+
+    public Task<IReadOnlyList<ContainerInfo>> ListAsync(CancellationToken ct)
+    {
+        Interlocked.Increment(ref _listCalls);
+        lock (_gate)
+        {
+            return _failure is null
+                ? Task.FromResult<IReadOnlyList<ContainerInfo>>(_containers)
+                : Task.FromException<IReadOnlyList<ContainerInfo>>(_failure);
+        }
+    }
+
+    public async IAsyncEnumerable<ContainerEvent> WatchEventsAsync(
+        DateTimeOffset since, [EnumeratorCancellation] CancellationToken ct)
+    {
+        Channel<ContainerEvent> events;
+        lock (_gate)
+        {
+            if (_failure is not null)
+                throw _failure;
+            events = _events;
+        }
+
+        await foreach (var e in events.Reader.ReadAllAsync(ct))
+            yield return e;
+    }
+
+    public async IAsyncEnumerable<StatsSample> StreamStatsAsync(string id, [EnumeratorCancellation] CancellationToken ct)
+    {
+        var channel = Channel.CreateUnbounded<StatsSample>();
+        lock (_gate)
+            _stats[id] = channel;
+        try
+        {
+            await foreach (var sample in channel.Reader.ReadAllAsync(ct))
+                yield return sample;
+        }
+        finally
+        {
+            lock (_gate)
+            {
+                if (_stats.GetValueOrDefault(id) == channel)
+                    _stats.Remove(id);
+            }
+        }
+    }
+
+    public Task StartAsync(string id, CancellationToken ct) => Record("start", id);
+
+    public Task StopAsync(string id, CancellationToken ct) => Record("stop", id);
+
+    public Task RestartAsync(string id, CancellationToken ct) => Record("restart", id);
+
+    public void Dispose()
+    {
+    }
+
+    private Task Record(string action, string id)
+    {
+        lock (_gate)
+            Actions.Add($"{action} {id}");
+        return Task.CompletedTask;
+    }
+}

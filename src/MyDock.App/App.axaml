@@ -1,0 +1,48 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="MyDock.App.App"
+             RequestedThemeVariant="Default">
+  <Application.Resources>
+    <ResourceDictionary>
+      <ResourceDictionary.ThemeDictionaries>
+        <ResourceDictionary x:Key="Light">
+          <SolidColorBrush x:Key="PanelBackground" Color="#FAFAFB" />
+          <SolidColorBrush x:Key="PanelBorder" Color="#24000000" />
+          <SolidColorBrush x:Key="Divider" Color="#12000000" />
+          <SolidColorBrush x:Key="TextPrimary" Color="#1C1C1E" />
+          <SolidColorBrush x:Key="TextSecondary" Color="#6B6F76" />
+          <SolidColorBrush x:Key="Track" Color="#16000000" />
+          <SolidColorBrush x:Key="Hover" Color="#12000000" />
+          <SolidColorBrush x:Key="Accent" Color="#1D7FD6" />
+          <SolidColorBrush x:Key="AccentFill" Color="#2E1D7FD6" />
+          <SolidColorBrush x:Key="Danger" Color="#D93F45" />
+          <SolidColorBrush x:Key="BannerBackground" Color="#14D93F45" />
+        </ResourceDictionary>
+        <ResourceDictionary x:Key="Dark">
+          <SolidColorBrush x:Key="PanelBackground" Color="#232327" />
+          <SolidColorBrush x:Key="PanelBorder" Color="#30FFFFFF" />
+          <SolidColorBrush x:Key="Divider" Color="#14FFFFFF" />
+          <SolidColorBrush x:Key="TextPrimary" Color="#F2F2F3" />
+          <SolidColorBrush x:Key="TextSecondary" Color="#A0A4AB" />
+          <SolidColorBrush x:Key="Track" Color="#1FFFFFFF" />
+          <SolidColorBrush x:Key="Hover" Color="#1AFFFFFF" />
+          <SolidColorBrush x:Key="Accent" Color="#4AA8FF" />
+          <SolidColorBrush x:Key="AccentFill" Color="#334AA8FF" />
+          <SolidColorBrush x:Key="Danger" Color="#FF6369" />
+          <SolidColorBrush x:Key="BannerBackground" Color="#24FF6369" />
+        </ResourceDictionary>
+      </ResourceDictionary.ThemeDictionaries>
+
+      <StreamGeometry x:Key="IconPlay">M8,5 L8,19 L19,12 Z</StreamGeometry>
+      <StreamGeometry x:Key="IconStop">M6,6 L18,6 L18,18 L6,18 Z</StreamGeometry>
+      <StreamGeometry x:Key="IconRestart">M17.65,6.35 C16.2,4.9 14.21,4 12,4 C7.58,4 4.01,7.58 4.01,12 C4.01,16.42 7.58,20 12,20 C15.73,20 18.84,17.45 19.73,14 L17.65,14 C16.83,16.33 14.61,18 12,18 C8.69,18 6,15.31 6,12 C6,8.69 8.69,6 12,6 C13.66,6 15.14,6.69 16.22,7.78 L13,11 L20,11 L20,4 Z</StreamGeometry>
+      <StreamGeometry x:Key="IconClose">M19,6.41 L17.59,5 L12,10.59 L6.41,5 L5,6.41 L10.59,12 L5,17.59 L6.41,19 L12,13.41 L17.59,19 L19,17.59 L13.41,12 Z</StreamGeometry>
+      <StreamGeometry x:Key="IconPin">M16,12 L16,4 L17,4 L17,2 L7,2 L7,4 L8,4 L8,12 L6,14 L6,16 L11.2,16 L11.2,22 L12.8,22 L12.8,16 L18,16 L18,14 Z</StreamGeometry>
+      <StreamGeometry x:Key="IconChevron">M10,6 L8.59,7.41 L13.17,12 L8.59,16.59 L10,18 L16,12 Z</StreamGeometry>
+    </ResourceDictionary>
+  </Application.Resources>
+
+  <Application.Styles>
+    <FluentTheme />
+  </Application.Styles>
+</Application>

@@ -1,0 +1,79 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:MyDock.App.ViewModels"
+             xmlns:c="using:MyDock.App.Controls"
+             xmlns:v="using:MyDock.App.Views"
+             x:Class="MyDock.App.Views.ContainerRow"
+             x:DataType="vm:ContainerViewModel">
+  <StackPanel>
+    <TextBlock Classes="group" Text="{Binding GroupHeader}" IsVisible="{Binding ShowGroupHeader}" />
+
+    <StackPanel Margin="14,8,10,10" Spacing="7">
+      <Grid ColumnDefinitions="Auto,*,Auto" ToolTip.Tip="{Binding Details}">
+        <Ellipse Width="9" Height="9" Margin="0,0,9,0" VerticalAlignment="Center"
+                 Fill="{Binding Indicator, Converter={x:Static v:Converters.IndicatorBrush}}" />
+
+        <StackPanel Grid.Column="1" Spacing="1">
+          <TextBlock Classes="name" Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+          <TextBlock Classes="secondary" Text="{Binding Subtitle}" TextTrimming="CharacterEllipsis" />
+        </StackPanel>
+
+        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="2" Margin="8,0,0,0"
+                    VerticalAlignment="Center" IsEnabled="{Binding !IsBusy}">
+          <c:ConfirmButton Classes="icon confirm" Command="{Binding RestartCommand}"
+                           IsVisible="{Binding IsActive}" ToolTip.Tip="Riavvia">
+            <Panel>
+              <PathIcon Data="{StaticResource IconRestart}" IsVisible="{Binding !$parent[c:ConfirmButton].IsArmed}" />
+              <TextBlock Text="Riavviare?" IsVisible="{Binding $parent[c:ConfirmButton].IsArmed}" />
+            </Panel>
+          </c:ConfirmButton>
+          <c:ConfirmButton Classes="icon confirm" Command="{Binding StopCommand}"
+                           IsVisible="{Binding IsActive}" ToolTip.Tip="Ferma">
+            <Panel>
+              <PathIcon Data="{StaticResource IconStop}" IsVisible="{Binding !$parent[c:ConfirmButton].IsArmed}" />
+              <TextBlock Text="Fermare?" IsVisible="{Binding $parent[c:ConfirmButton].IsArmed}" />
+            </Panel>
+          </c:ConfirmButton>
+          <Button Classes="icon" Command="{Binding StartCommand}"
+                  IsVisible="{Binding !IsActive}" ToolTip.Tip="Avvia">
+            <PathIcon Data="{StaticResource IconPlay}" />
+          </Button>
+        </StackPanel>
+      </Grid>
+
+      <Grid ColumnDefinitions="*,16,*" RowDefinitions="Auto,Auto,Auto" Margin="18,0,4,0"
+            IsVisible="{Binding IsActive}">
+        <Grid ColumnDefinitions="Auto,*">
+          <TextBlock Classes="label" Text="CPU" />
+          <TextBlock Grid.Column="1" Classes="value" Text="{Binding CpuText}" />
+        </Grid>
+        <Border Grid.Row="1" Classes="chart">
+          <c:Sparkline Values="{Binding CpuHistory}"
+                       Stroke="{DynamicResource Accent}" Fill="{DynamicResource AccentFill}" />
+        </Border>
+        <Grid Grid.Row="2" ColumnDefinitions="Auto,*">
+          <TextBlock Classes="label" Text="Rete" />
+          <TextBlock Grid.Column="1" Classes="value small" Text="{Binding NetworkText}" />
+        </Grid>
+
+        <Grid Grid.Column="2" ColumnDefinitions="Auto,*">
+          <TextBlock Classes="label" Text="RAM" />
+          <TextBlock Grid.Column="1" Classes="value" Text="{Binding MemoryText}" />
+        </Grid>
+        <Border Grid.Row="1" Grid.Column="2" Classes="chart">
+          <ProgressBar Classes="meter" Value="{Binding MemoryPercent}" Maximum="100" VerticalAlignment="Center" />
+        </Border>
+        <Grid Grid.Row="2" Grid.Column="2" ColumnDefinitions="Auto,*">
+          <TextBlock Classes="label" Text="Disco" />
+          <TextBlock Grid.Column="1" Classes="value small" Text="{Binding DiskText}" />
+        </Grid>
+      </Grid>
+
+      <ProgressBar Classes="busy" IsIndeterminate="True" IsVisible="{Binding IsBusy}" />
+      <TextBlock Classes="error" Text="{Binding Error}" TextWrapping="Wrap"
+                 IsVisible="{Binding Error, Converter={x:Static ObjectConverters.IsNotNull}}" />
+    </StackPanel>
+
+    <Border Height="1" Background="{DynamicResource Divider}" />
+  </StackPanel>
+</UserControl>
