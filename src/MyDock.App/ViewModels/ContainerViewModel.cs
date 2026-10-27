@@ -150,6 +150,20 @@ public sealed partial class ContainerViewModel : ObservableObject
     private void ShowLogs() => _showLogs(this);
 
     [RelayCommand]
+    private void OpenShell()
+    {
+        Error = null;
+        try
+        {
+            ContainerShell.Open(Id);
+        }
+        catch (Exception ex)
+        {
+            Error = ex.Message;
+        }
+    }
+
+    [RelayCommand]
     private void ToggleGroup() => _toggleGroup(ComposeProject!);
 
     [RelayCommand]
