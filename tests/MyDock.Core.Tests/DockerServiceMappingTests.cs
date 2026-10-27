@@ -111,6 +111,29 @@ public sealed class DockerServiceMappingTests
     }
 
     [Fact]
+    public void Maps_ports_and_user_defined_networks()
+    {
+        var info = DockerService.ToInfo(new ContainerListResponse
+        {
+            ID = "x",
+            State = "running",
+            Ports =
+            [
+                new() { IP = "0.0.0.0", PrivatePort = 80, PublicPort = 8080, Type = "tcp" },
+                new() { IP = "::", PrivatePort = 80, PublicPort = 8080, Type = "tcp" },
+                new() { PrivatePort = 5432, Type = "tcp" },
+            ],
+            NetworkSettings = new()
+            {
+                Networks = new Dictionary<string, EndpointSettings> { ["bridge"] = new(), ["shop_default"] = new() },
+            },
+        });
+
+        Assert.Equal("8080→80/tcp, 5432/tcp", info.Ports);
+        Assert.Equal("shop_default", info.Networks);
+    }
+
+    [Fact]
     public void Maps_a_list_entry_with_missing_fields()
     {
         var info = DockerService.ToInfo(new ContainerListResponse { ID = "0123456789abcdef", State = "exited" });
@@ -119,6 +142,8 @@ public sealed class DockerServiceMappingTests
         Assert.Equal(ContainerState.Exited, info.State);
         Assert.Equal(HealthState.None, info.Health);
         Assert.Null(info.ComposeProject);
+        Assert.Null(info.Ports);
+        Assert.Null(info.Networks);
         Assert.False(info.IsActive);
     }
 

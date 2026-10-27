@@ -65,6 +65,12 @@
         <StackPanel Grid.Column="1" Spacing="1">
           <TextBlock Classes="name" Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
           <TextBlock Classes="secondary" Text="{Binding Subtitle}" TextTrimming="CharacterEllipsis" />
+          <TextBlock Classes="secondary" Text="{Binding PortsText}" TextTrimming="CharacterEllipsis"
+                     ToolTip.Tip="{Binding PortsText}"
+                     IsVisible="{Binding PortsText, Converter={x:Static ObjectConverters.IsNotNull}}" />
+          <TextBlock Classes="secondary" Text="{Binding NetworksText}" TextTrimming="CharacterEllipsis"
+                     ToolTip.Tip="{Binding NetworksText}"
+                     IsVisible="{Binding NetworksText, Converter={x:Static ObjectConverters.IsNotNull}}" />
         </StackPanel>
 
         <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="2" Margin="8,0,0,0"

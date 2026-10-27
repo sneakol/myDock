@@ -101,7 +101,30 @@ public sealed class DockerService : IDockerService
             ParseHealth(c.Health?.Status),
             c.Status ?? "",
             new DateTimeOffset(DateTime.SpecifyKind(c.Created, DateTimeKind.Utc)),
-            string.IsNullOrEmpty(project) ? null : project);
+            string.IsNullOrEmpty(project) ? null : project,
+            FormatPorts(c.Ports?.Select(p => ((long)p.PrivatePort, (long)(p.PublicPort ?? 0), p.Type))),
+            FormatNetworks(c.NetworkSettings?.Networks));
+    }
+
+    // Docker lists a published port once per host address (IPv4 and IPv6): the text is the same, so dedupe.
+    internal static string? FormatPorts(IEnumerable<(long Private, long Public, string Type)>? ports)
+    {
+        var text = (ports ?? [])
+            .OrderBy(p => p.Private).ThenBy(p => p.Public)
+            .Select(p => p.Public > 0 ? $"{p.Public}→{p.Private}/{p.Type}" : $"{p.Private}/{p.Type}")
+            .Distinct()
+            .ToList();
+        return text.Count == 0 ? null : string.Join(", ", text);
+    }
+
+    // The default networks say nothing about how the container is wired.
+    internal static string? FormatNetworks(IDictionary<string, EndpointSettings>? networks)
+    {
+        var names = (networks?.Keys ?? [])
+            .Where(n => n is not ("bridge" or "host" or "none"))
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        return names.Count == 0 ? null : string.Join(", ", names);
     }
 
     internal static StatsSample ToSample(ContainerStatsResponse s)

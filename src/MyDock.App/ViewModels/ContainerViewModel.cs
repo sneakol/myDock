@@ -30,6 +30,8 @@ public sealed partial class ContainerViewModel : ObservableObject
     [ObservableProperty] private string _name = "";
     [ObservableProperty] private string _subtitle = "";
     [ObservableProperty] private string _details = "";
+    [ObservableProperty] private string? _portsText;
+    [ObservableProperty] private string? _networksText;
     [ObservableProperty] private bool _isActive;
     [ObservableProperty] private Indicator _indicator;
     [ObservableProperty] private string _cpuText = NoValue;
@@ -92,6 +94,8 @@ public sealed partial class ContainerViewModel : ObservableObject
         IsActive = info.IsActive;
         Indicator = IndicatorFor(info);
         ComposeProject = info.ComposeProject;
+        PortsText = info.Ports is null ? null : "Ports: " + info.Ports;
+        NetworksText = info.Networks is null ? null : "Network: " + info.Networks;
 
         // The same stats object is republished whenever another container changes: only a new one is a new sample.
         if (ReferenceEquals(stats, _lastStats))
