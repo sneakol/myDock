@@ -105,7 +105,7 @@
           BorderBrush="{DynamicResource PanelBorder}" BorderThickness="1"
           BoxShadow="0 3 10 0 #38000000"
           TextElement.Foreground="{DynamicResource TextPrimary}">
-    <Grid RowDefinitions="Auto,Auto,*">
+    <Grid RowDefinitions="Auto,Auto,*,Auto">
 
       <!-- Header: also the handle to drag the panel around. -->
       <Border x:Name="Header" Background="Transparent" Padding="14,8,8,8"
@@ -199,8 +199,18 @@
         </StackPanel>
       </ScrollViewer>
 
+      <Border Grid.Row="3" Padding="14,4,8,4"
+              BorderBrush="{DynamicResource Divider}" BorderThickness="0,1,0,0">
+        <Grid ColumnDefinitions="*,Auto">
+          <CheckBox IsChecked="{Binding StartAtLogin}" VerticalAlignment="Center">
+            <TextBlock Classes="secondary" Text="Start at login" />
+          </CheckBox>
+          <Button Grid.Column="1" Classes="link" Content="Quit" Command="{Binding QuitCommand}" />
+        </Grid>
+      </Border>
+
       <!-- Delete confirmation: an overlay rather than a window, which would take focus and hide the panel. -->
-      <Border Grid.RowSpan="3" Background="#99000000" IsVisible="{Binding IsDeleting}">
+      <Border Grid.RowSpan="4" Background="#99000000" IsVisible="{Binding IsDeleting}">
         <Border Margin="20" Padding="14" VerticalAlignment="Center" CornerRadius="10"
                 Background="{DynamicResource PanelBackground}"
                 BorderBrush="{DynamicResource PanelBorder}" BorderThickness="1">

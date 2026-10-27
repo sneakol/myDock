@@ -12,7 +12,7 @@ public partial class PanelWindow : Window
     /// <summary>Gap between the panel and the edges of the screen's working area, in device-independent pixels.</summary>
     private const int ScreenGap = 4;
 
-    // Opening from the tray menu makes focus bounce for a moment: a blur that soon after showing is not the user leaving.
+    // Opening from the tray makes focus bounce for a moment: a blur that soon after showing is not the user leaving.
     private static readonly TimeSpan BlurGrace = TimeSpan.FromMilliseconds(400);
 
     private PanelViewModel? _viewModel;

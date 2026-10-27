@@ -28,6 +28,7 @@ public sealed partial class PanelViewModel : ObservableObject
     [ObservableProperty] private string _stoppedHeader = "";
     [ObservableProperty] private bool _isPinned;
     [ObservableProperty] private bool _isStoppedExpanded;
+    [ObservableProperty] private bool _startAtLogin = Autostart.IsEnabled;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsDeleting))]
@@ -57,6 +58,8 @@ public sealed partial class PanelViewModel : ObservableObject
     }
 
     public event Action? HideRequested;
+
+    public event Action? QuitRequested;
 
     public ObservableCollection<ContainerViewModel> Active { get; } = [];
 
@@ -152,6 +155,8 @@ public sealed partial class PanelViewModel : ObservableObject
         _store.Save(_settings);
     }
 
+    partial void OnStartAtLoginChanged(bool value) => Autostart.Set(value);
+
     partial void OnImageSharedChanged(bool value)
     {
         if (value)
@@ -205,6 +210,9 @@ public sealed partial class PanelViewModel : ObservableObject
 
     [RelayCommand]
     private void Hide() => HideRequested?.Invoke();
+
+    [RelayCommand]
+    private void Quit() => QuitRequested?.Invoke();
 
     [RelayCommand]
     private void CycleSort() => Sort = Sort switch

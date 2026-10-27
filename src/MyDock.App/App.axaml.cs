@@ -22,7 +22,6 @@ public partial class App : Application
     private PanelViewModel? _viewModel;
     private PanelWindow? _panel;
     private TrayIcon? _tray;
-    private NativeMenuItem? _toggleItem;
     private int _trayUpdateQueued;
 
     public App()
@@ -45,6 +44,7 @@ public partial class App : Application
             _docker = new DockerService();
             _monitor = new ContainerMonitor(_docker);
             _viewModel = new PanelViewModel(_monitor, new SettingsStore(), _docker.Endpoint.ToString());
+            _viewModel.QuitRequested += Quit;
             _panel = new PanelWindow { DataContext = _viewModel };
             _panel.PropertyChanged += OnPanelPropertyChanged;
 
@@ -66,29 +66,11 @@ public partial class App : Application
 
     private void CreateTray()
     {
-        _toggleItem = new NativeMenuItem("Show panel");
-        _toggleItem.Click += (_, _) => _panel?.Toggle();
-
-        var autostart = new NativeMenuItem("Start at login")
-        {
-            ToggleType = MenuItemToggleType.CheckBox,
-            IsChecked = Autostart.IsEnabled,
-        };
-        autostart.Click += (_, _) =>
-        {
-            Autostart.Set(!Autostart.IsEnabled);
-            autostart.IsChecked = Autostart.IsEnabled;
-        };
-
-        var quit = new NativeMenuItem("Quit");
-        quit.Click += (_, _) => Quit();
-
-        // On GNOME a click on the icon opens this menu rather than activating the icon, so showing the panel comes first.
+        // No Menu: on GNOME a menu would swallow the click, so the icon's actions live in the panel.
         _tray = new TrayIcon
         {
             Icon = TrayIconRenderer.Render(0, error: false),
             ToolTipText = "myDock",
-            Menu = [_toggleItem, new NativeMenuItemSeparator(), autostart, new NativeMenuItemSeparator(), quit],
         };
         _tray.Clicked += (_, _) => _panel?.Toggle();
         TrayIcon.SetIcons(this, [_tray]);
@@ -126,7 +108,6 @@ public partial class App : Application
         if (visible)
             _viewModel?.ResetHistory();
         _monitor.StatsEnabled = visible;
-        _toggleItem?.Header = visible ? "Hide panel" : "Show panel";
     }
 
     private void OnMonitorChanged()
