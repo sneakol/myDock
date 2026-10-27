@@ -32,8 +32,8 @@ applications menu. To start it at login: tray icon menu → *Start at login*.
 ### Debian / Ubuntu package
 
 ```bash
-packaging/build-deb.sh [version]            # builds dist/mydock_<version>_<arch>.deb (default version 0.1.0)
-sudo apt install ./dist/mydock_0.1.0_amd64.deb
+packaging/build-deb.sh                      # builds dist/mydock_<version>_amd64.deb and _arm64.deb
+sudo apt install ./dist/mydock_1.0.0_<arch>.deb   # amd64 or arm64, as per `dpkg --print-architecture`
 sudo apt remove mydock
 ```
 
@@ -42,7 +42,20 @@ and pulls in the libraries it needs. It recommends Docker's CLI (compose and the
 (notifications) and the AppIndicator extension. Settings stay in `~/.config/mydock`. If you also used `install.sh`,
 remove that copy first (`packaging/install.sh --uninstall`), or it shadows the packaged command. Quit a running
 instance (`mydock --quit`) before upgrading or removing the package; if you enabled *Start at login*, delete
-`~/.config/autostart/mydock.desktop` after removing it. The package has no copyright file yet because the project has no license.
+`~/.config/autostart/mydock.desktop` after removing it.
+
+The version is `<Version>` in `Directory.Build.props`. Both architectures build from any machine
+with `dotnet` and `dpkg-deb` (`ARCHES=amd64 packaging/build-deb.sh` builds only one).
+
+### Releases
+
+Pushing a tag that matches the version publishes a GitHub release with both packages and their checksums:
+
+```bash
+git tag v1.0.0 && git push origin v1.0.0
+```
+
+The workflow is `.github/workflows/release.yml`; running it by hand from the Actions tab only builds and tests.
 
 ## Usage
 
@@ -97,3 +110,7 @@ and reconnects by itself if the daemon goes away.
 
 The panel is placed at the top right because Avalonia on Linux uses X11 (here through XWayland):
 a native Wayland client cannot choose where to appear.
+
+## License
+
+[MIT](LICENSE): use, copy, modify and distribute it freely, keeping the copyright notice.
