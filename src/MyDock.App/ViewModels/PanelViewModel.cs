@@ -19,6 +19,7 @@ public sealed partial class PanelViewModel : ObservableObject
     private readonly IComposeRunner _runner;
     private readonly Dictionary<string, ContainerViewModel> _byId = [];
     private int _updateQueued;
+    private HashSet<string> _statsIds = [];
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsConnecting), nameof(IsConnected), nameof(IsUnavailable), nameof(IsPermissionDenied))]
@@ -160,6 +161,7 @@ public sealed partial class PanelViewModel : ObservableObject
 
         Sync(Active, active);
         Sync(Stopped, stopped);
+        UpdateStatsScope(active);
 
         var activeCount = _byId.Values.Count(c => c.IsActive);
         IsEmpty = IsConnected && active.Count == 0 && (!IsFiltering || _byId.Count == 0);
@@ -181,6 +183,22 @@ public sealed partial class PanelViewModel : ObservableObject
             else
                 ImageShared = _monitor.IsImageShared(pending.ImageId, pending.Id);
         }
+    }
+
+    // Rows in a collapsed group or filtered out are not on screen: streaming their stats is wasted work.
+    private void UpdateStatsScope(List<ContainerViewModel> active)
+    {
+        var ids = active.Where(c => !c.IsGroupCollapsed).Select(c => c.Id).ToHashSet();
+
+        // A row coming back has a gap in its history.
+        foreach (var id in ids.Where(id => !_statsIds.Contains(id)))
+        {
+            if (_byId.TryGetValue(id, out var container))
+                container.ResetHistory();
+        }
+
+        _statsIds = ids;
+        _monitor.SetStatsScope(ids);
     }
 
     /// <summary>Forgets the CPU histories: they have a gap whenever the panel was hidden.</summary>

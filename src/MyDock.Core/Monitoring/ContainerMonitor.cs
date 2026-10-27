@@ -34,6 +34,7 @@ public sealed class ContainerMonitor : IAsyncDisposable
 
     private ConnectionState _connection = ConnectionState.Connecting;
     private bool _statsEnabled;
+    private IReadOnlySet<string>? _statsScope;
     private CancellationToken _sessionToken;
     private ChannelWriter<bool>? _refreshRequests;
     private volatile MonitorSnapshot _current = MonitorSnapshot.Initial;
@@ -72,6 +73,22 @@ public sealed class ContainerMonitor : IAsyncDisposable
 
             if (value)
                 RequestRefresh();
+        }
+    }
+
+    /// <summary>
+    /// Limits the stats streams to these containers, e.g. the rows that are on screen; null means all running ones.
+    /// A container left out keeps its last stats, so sorting by load does not jump around.
+    /// </summary>
+    public void SetStatsScope(IReadOnlySet<string>? ids)
+    {
+        lock (_gate)
+        {
+            if (_statsScope is null ? ids is null : ids is not null && _statsScope.SetEquals(ids))
+                return;
+
+            _statsScope = ids is null ? null : new HashSet<string>(ids);
+            ReconcileStats();
         }
     }
 
@@ -300,7 +317,8 @@ public sealed class ContainerMonitor : IAsyncDisposable
         {
             var wanted = _statsEnabled
                 && _connection == ConnectionState.Connected
-                && tracked.Info.State is ContainerState.Running or ContainerState.Paused;
+                && tracked.Info.State is ContainerState.Running or ContainerState.Paused
+                && (_statsScope is null || _statsScope.Contains(id));
 
             if (wanted && tracked.StatsCts is null)
             {

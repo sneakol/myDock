@@ -125,6 +125,40 @@ public sealed class ContainerMonitorTests : IAsyncDisposable
     }
 
     [Fact]
+    public async Task Stats_scope_limits_the_streams_and_can_be_lifted()
+    {
+        _docker.Set(FakeDocker.Container("a"), FakeDocker.Container("b"), FakeDocker.Container("c"));
+        _monitor.StatsEnabled = true;
+        _monitor.Start();
+        await Eventually(() => _docker.OpenStatsStreams is ["a", "b", "c"]);
+
+        _monitor.SetStatsScope(new HashSet<string> { "a", "c" });
+        await Eventually(() => _docker.OpenStatsStreams is ["a", "c"]);
+
+        _monitor.SetStatsScope(new HashSet<string> { "b" });
+        await Eventually(() => _docker.OpenStatsStreams is ["b"]);
+
+        _monitor.SetStatsScope(null);
+        await Eventually(() => _docker.OpenStatsStreams is ["a", "b", "c"]);
+    }
+
+    [Fact]
+    public async Task A_container_left_out_of_the_scope_keeps_its_last_stats()
+    {
+        _docker.Set(FakeDocker.Container("a"));
+        _monitor.StatsEnabled = true;
+        _monitor.Start();
+        await Eventually(() => _docker.OpenStatsStreams is ["a"]);
+        _docker.PushStats("a", new StatsSample { Pids = 1 });
+        await Eventually(() => _monitor.Current.Containers[0].Stats is not null);
+
+        _monitor.SetStatsScope(new HashSet<string>());
+        await Eventually(() => _docker.OpenStatsStreams is []);
+
+        Assert.NotNull(_monitor.Current.Containers[0].Stats);
+    }
+
+    [Fact]
     public async Task Enabling_stats_before_connecting_streams_once_connected()
     {
         _docker.Set(FakeDocker.Container("a"));
