@@ -121,6 +121,20 @@ internal sealed class FakeDocker : IDockerService
         }
     }
 
+    /// <summary>What <see cref="StreamLogsAsync"/> yields, and the arguments of its last call.</summary>
+    public string[] LogChunks { get; set; } = [];
+
+    public (string Id, int Tail, bool Follow)? LastLogsRequest { get; private set; }
+
+    public async IAsyncEnumerable<string> StreamLogsAsync(
+        string id, int tail, bool follow, [EnumeratorCancellation] CancellationToken ct)
+    {
+        LastLogsRequest = (id, tail, follow);
+        foreach (var chunk in LogChunks)
+            yield return chunk;
+        await Task.CompletedTask;
+    }
+
     public Task StartAsync(string id, CancellationToken ct) => Record("start", id);
 
     public Task StopAsync(string id, CancellationToken ct) => Record("stop", id);

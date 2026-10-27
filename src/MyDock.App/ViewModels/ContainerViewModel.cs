@@ -22,6 +22,7 @@ public sealed partial class ContainerViewModel : ObservableObject
 
     private readonly ContainerMonitor _monitor;
     private readonly Action<ContainerViewModel> _requestDelete;
+    private readonly Action<ContainerViewModel> _showLogs;
     private readonly Action<string> _toggleGroup;
     private readonly Func<string, ProjectAction, Task> _runGroup;
     private readonly Queue<double> _cpuSamples = new(HistoryLength);
@@ -57,10 +58,12 @@ public sealed partial class ContainerViewModel : ObservableObject
         ContainerSnapshot snapshot,
         Action<ContainerViewModel> requestDelete,
         Action<string> toggleGroup,
-        Func<string, ProjectAction, Task> runGroup)
+        Func<string, ProjectAction, Task> runGroup,
+        Action<ContainerViewModel> showLogs)
     {
         _monitor = monitor;
         _requestDelete = requestDelete;
+        _showLogs = showLogs;
         _toggleGroup = toggleGroup;
         _runGroup = runGroup;
         Id = snapshot.Info.Id;
@@ -142,6 +145,9 @@ public sealed partial class ContainerViewModel : ObservableObject
 
     [RelayCommand]
     private void Delete() => _requestDelete(this);
+
+    [RelayCommand]
+    private void ShowLogs() => _showLogs(this);
 
     [RelayCommand]
     private void ToggleGroup() => _toggleGroup(ComposeProject!);

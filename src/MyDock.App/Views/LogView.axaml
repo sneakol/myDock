@@ -1,0 +1,37 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:MyDock.App.ViewModels"
+             xmlns:v="using:MyDock.App.Views"
+             x:Class="MyDock.App.Views.LogView"
+             x:DataType="vm:LogViewModel">
+  <Border Background="{DynamicResource PanelBackground}">
+    <Grid RowDefinitions="Auto,Auto,*">
+      <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto,Auto" Margin="14,8,6,8">
+        <TextBlock Classes="title" Text="{Binding Title}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+        <CheckBox Grid.Column="1" Margin="8,0,0,0" IsChecked="{Binding IsLive}" VerticalAlignment="Center">
+          <TextBlock Classes="secondary" Text="Live" />
+        </CheckBox>
+        <Button Grid.Column="2" Classes="link" Content="Refresh" Command="{Binding RefreshCommand}" />
+        <Button Grid.Column="3" Classes="link" Content="Copy" Click="OnCopy" />
+        <Button Grid.Column="4" Classes="icon" Click="OnPopOut" ToolTip.Tip="Open in a window"
+                IsVisible="{Binding $parent[v:LogView].ShowPopOut}">
+          <PathIcon Data="{StaticResource IconExpand}" />
+        </Button>
+        <Button Grid.Column="5" Classes="icon" Click="OnClose" ToolTip.Tip="Close">
+          <PathIcon Data="{StaticResource IconClose}" />
+        </Button>
+      </Grid>
+
+      <ProgressBar Grid.Row="1" Classes="busy" IsIndeterminate="True" IsVisible="{Binding IsLoading}" />
+
+      <ScrollViewer Grid.Row="2" x:Name="Scroller" HorizontalScrollBarVisibility="Disabled">
+        <StackPanel>
+          <TextBlock Classes="error" Margin="14,4" Text="{Binding Error}" TextWrapping="Wrap"
+                     IsVisible="{Binding Error, Converter={x:Static ObjectConverters.IsNotNull}}" />
+          <SelectableTextBlock Margin="14,0,14,10" FontFamily="monospace" FontSize="11"
+                               TextWrapping="Wrap" Text="{Binding Text}" />
+        </StackPanel>
+      </ScrollViewer>
+    </Grid>
+  </Border>
+</UserControl>

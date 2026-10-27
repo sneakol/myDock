@@ -17,6 +17,12 @@ public interface IDockerService : IDisposable
     /// <summary>Streams container events from <paramref name="since"/> onwards until cancelled or the daemon closes the stream.</summary>
     IAsyncEnumerable<ContainerEvent> WatchEventsAsync(DateTimeOffset since, CancellationToken ct);
 
+    /// <summary>
+    /// Streams the last <paramref name="tail"/> log lines as text chunks, each ending with a newline; with <paramref name="follow"/>
+    /// it keeps going with new output until cancelled or the container goes away.
+    /// </summary>
+    IAsyncEnumerable<string> StreamLogsAsync(string id, int tail, bool follow, CancellationToken ct);
+
     Task StartAsync(string id, CancellationToken ct);
     Task StopAsync(string id, CancellationToken ct);
     Task RestartAsync(string id, CancellationToken ct);

@@ -257,6 +257,11 @@
         </Grid>
       </Border>
 
+      <!-- Container logs: an overlay too; the pop-out button moves them to a window of their own. -->
+      <Panel Grid.RowSpan="4" IsVisible="{Binding IsShowingLogs}">
+        <v:LogView x:Name="PanelLogs" DataContext="{Binding Logs}" />
+      </Panel>
+
       <!-- Delete confirmation: an overlay rather than a window, which would take focus and hide the panel. -->
       <Border Grid.RowSpan="4" Background="#99000000" IsVisible="{Binding IsDeleting}">
         <Border Margin="20" Padding="14" VerticalAlignment="Center" CornerRadius="10"

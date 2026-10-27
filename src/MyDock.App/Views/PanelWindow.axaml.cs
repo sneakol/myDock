@@ -25,6 +25,8 @@ public partial class PanelWindow : Window
     {
         InitializeComponent();
         Header.PointerPressed += OnHeaderPointerPressed;
+        PanelLogs.CloseRequested += () => _viewModel?.CloseLogs();
+        PanelLogs.PopOutRequested += () => _viewModel?.PopOutLogsCommand.Execute(null);
     }
 
     public void Toggle()
@@ -55,11 +57,20 @@ public partial class PanelWindow : Window
     {
         base.OnDataContextChanged(e);
         if (_viewModel is not null)
+        {
             _viewModel.HideRequested -= Hide;
+            _viewModel.LogsPoppedOut -= OnLogsPoppedOut;
+        }
+
         _viewModel = DataContext as PanelViewModel;
         if (_viewModel is not null)
+        {
             _viewModel.HideRequested += Hide;
+            _viewModel.LogsPoppedOut += OnLogsPoppedOut;
+        }
     }
+
+    private static void OnLogsPoppedOut(LogViewModel logs) => new LogWindow { DataContext = logs }.Show();
 
     protected override void OnClosing(WindowClosingEventArgs e)
     {
@@ -80,6 +91,8 @@ public partial class PanelWindow : Window
 
         if (_viewModel is { IsDeleting: true })
             _viewModel.CancelDeleteCommand.Execute(null);
+        else if (_viewModel is { IsShowingLogs: true })
+            _viewModel.CloseLogs();
         else
             Hide();
     }
@@ -87,6 +100,10 @@ public partial class PanelWindow : Window
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
         base.OnPropertyChanged(change);
+        // A hidden panel must not keep following a container's log in the background.
+        if (change.Property == IsVisibleProperty && !change.GetNewValue<bool>())
+            _viewModel?.CloseLogs();
+
         if (change.Property == IsActiveProperty
             && !change.GetNewValue<bool>()
             && IsVisible

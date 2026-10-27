@@ -73,6 +73,9 @@ public sealed class ContainerMonitor : IAsyncDisposable
 
     public void Start() => _loop ??= Task.Run(() => RunAsync(_cts.Token));
 
+    public IAsyncEnumerable<string> StreamLogsAsync(string id, int tail, bool follow, CancellationToken ct) =>
+        _docker.StreamLogsAsync(id, tail, follow, ct);
+
     public Task StartContainerAsync(string id, CancellationToken ct = default) => _docker.StartAsync(id, ct);
 
     public Task StopContainerAsync(string id, CancellationToken ct = default) => _docker.StopAsync(id, ct);

@@ -36,6 +36,10 @@ public sealed partial class PanelViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(IsDeleting))]
     private ContainerViewModel? _pendingDelete;
 
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsShowingLogs))]
+    private LogViewModel? _logs;
+
     [ObservableProperty] private bool _imageShared;
     [ObservableProperty] private bool _alsoDeleteImage;
     [ObservableProperty] private bool _isDeleteBusy;
@@ -67,6 +71,8 @@ public sealed partial class PanelViewModel : ObservableObject
 
     public event Action? QuitRequested;
 
+    public event Action<LogViewModel>? LogsPoppedOut;
+
     public ObservableCollection<ContainerViewModel> Active { get; } = [];
 
     public ObservableCollection<ContainerViewModel> Stopped { get; } = [];
@@ -87,6 +93,8 @@ public sealed partial class PanelViewModel : ObservableObject
 
     public bool IsDeleting => PendingDelete is not null;
 
+    public bool IsShowingLogs => Logs is not null;
+
     public string SortLabel => Sort switch
     {
         SortMode.Cpu => "CPU",
@@ -105,7 +113,7 @@ public sealed partial class PanelViewModel : ObservableObject
             if (_byId.TryGetValue(container.Info.Id, out var existing))
                 existing.Update(container);
             else
-                _byId[container.Info.Id] = new ContainerViewModel(_monitor, container, RequestDelete, ToggleGroup, RunGroupAsync);
+                _byId[container.Info.Id] = new ContainerViewModel(_monitor, container, RequestDelete, ToggleGroup, RunGroupAsync, RequestLogs);
         }
 
         foreach (var id in _byId.Keys.Where(id => !seen.Contains(id)).ToList())
@@ -206,6 +214,30 @@ public sealed partial class PanelViewModel : ObservableObject
         AlsoDeleteImage = false;
         ImageShared = _monitor.IsImageShared(container.ImageId, container.Id);
         PendingDelete = container;
+    }
+
+    private void RequestLogs(ContainerViewModel container)
+    {
+        Logs?.Dispose();
+        Logs = new LogViewModel(_monitor, container);
+    }
+
+    [RelayCommand]
+    public void CloseLogs()
+    {
+        Logs?.Dispose();
+        Logs = null;
+    }
+
+    // The window takes over the view model, so it must not be disposed here.
+    [RelayCommand]
+    private void PopOutLogs()
+    {
+        if (Logs is not { } logs)
+            return;
+
+        Logs = null;
+        LogsPoppedOut?.Invoke(logs);
     }
 
     [RelayCommand]

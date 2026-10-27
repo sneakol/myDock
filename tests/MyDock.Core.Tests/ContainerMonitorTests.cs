@@ -246,6 +246,17 @@ public sealed class ContainerMonitorTests : IAsyncDisposable
     }
 
     [Fact]
+    public async Task Logs_are_streamed_from_docker()
+    {
+        _docker.LogChunks = ["one\n", "two\n"];
+
+        var chunks = await _monitor.StreamLogsAsync("a", 200, follow: true, CancellationToken.None).ToListAsync();
+
+        Assert.Equal(["one\n", "two\n"], chunks);
+        Assert.Equal(("a", 200, true), _docker.LastLogsRequest);
+    }
+
+    [Fact]
     public async Task Deleting_a_container_keeps_its_image_unless_asked()
     {
         _docker.Set(FakeDocker.Container("a", ContainerState.Exited));

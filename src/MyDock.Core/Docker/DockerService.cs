@@ -58,6 +58,17 @@ public sealed class DockerService : IDockerService
             ct);
     }
 
+    public IAsyncEnumerable<string> StreamLogsAsync(string id, int tail, bool follow, CancellationToken ct) =>
+        Bridge<string, string>(
+            (progress, token) => _client.Containers.GetContainerLogsAsync(
+                id,
+                new ContainerLogsParameters { ShowStdout = true, ShowStderr = true, Tail = tail.ToString(), Follow = follow },
+                progress,
+                token),
+            // The library reports one line at a time with its newline already stripped.
+            line => line + "\n",
+            ct);
+
     public Task StartAsync(string id, CancellationToken ct) =>
         RunAsync(() => _client.Containers.StartContainerAsync(id, new ContainerStartParameters(), ct));
 

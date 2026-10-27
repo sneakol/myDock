@@ -75,6 +75,9 @@
 
         <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="2" Margin="8,0,0,0"
                     VerticalAlignment="Center" IsEnabled="{Binding !IsBusy}">
+          <Button Classes="icon" Command="{Binding ShowLogsCommand}" ToolTip.Tip="Logs">
+            <PathIcon Data="{StaticResource IconLogs}" />
+          </Button>
           <c:ConfirmButton Classes="icon confirm" Command="{Binding RestartCommand}"
                            IsVisible="{Binding IsActive}" ToolTip.Tip="Restart">
             <Panel>
