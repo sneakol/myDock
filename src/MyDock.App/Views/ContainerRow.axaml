@@ -21,21 +21,21 @@
         <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="2" Margin="8,0,0,0"
                     VerticalAlignment="Center" IsEnabled="{Binding !IsBusy}">
           <c:ConfirmButton Classes="icon confirm" Command="{Binding RestartCommand}"
-                           IsVisible="{Binding IsActive}" ToolTip.Tip="Riavvia">
+                           IsVisible="{Binding IsActive}" ToolTip.Tip="Restart">
             <Panel>
               <PathIcon Data="{StaticResource IconRestart}" IsVisible="{Binding !$parent[c:ConfirmButton].IsArmed}" />
-              <TextBlock Text="Riavviare?" IsVisible="{Binding $parent[c:ConfirmButton].IsArmed}" />
+              <TextBlock Text="Restart?" IsVisible="{Binding $parent[c:ConfirmButton].IsArmed}" />
             </Panel>
           </c:ConfirmButton>
           <c:ConfirmButton Classes="icon confirm" Command="{Binding StopCommand}"
-                           IsVisible="{Binding IsActive}" ToolTip.Tip="Ferma">
+                           IsVisible="{Binding IsActive}" ToolTip.Tip="Stop">
             <Panel>
               <PathIcon Data="{StaticResource IconStop}" IsVisible="{Binding !$parent[c:ConfirmButton].IsArmed}" />
-              <TextBlock Text="Fermare?" IsVisible="{Binding $parent[c:ConfirmButton].IsArmed}" />
+              <TextBlock Text="Stop?" IsVisible="{Binding $parent[c:ConfirmButton].IsArmed}" />
             </Panel>
           </c:ConfirmButton>
           <Button Classes="icon" Command="{Binding StartCommand}"
-                  IsVisible="{Binding !IsActive}" ToolTip.Tip="Avvia">
+                  IsVisible="{Binding !IsActive}" ToolTip.Tip="Start">
             <PathIcon Data="{StaticResource IconPlay}" />
           </Button>
         </StackPanel>
@@ -52,7 +52,7 @@
                        Stroke="{DynamicResource Accent}" Fill="{DynamicResource AccentFill}" />
         </Border>
         <Grid Grid.Row="2" ColumnDefinitions="Auto,*">
-          <TextBlock Classes="label" Text="Rete" />
+          <TextBlock Classes="label" Text="Network" />
           <TextBlock Grid.Column="1" Classes="value small" Text="{Binding NetworkText}" />
         </Grid>
 
@@ -64,7 +64,7 @@
           <ProgressBar Classes="meter" Value="{Binding MemoryPercent}" Maximum="100" VerticalAlignment="Center" />
         </Border>
         <Grid Grid.Row="2" Grid.Column="2" ColumnDefinitions="Auto,*">
-          <TextBlock Classes="label" Text="Disco" />
+          <TextBlock Classes="label" Text="Disk" />
           <TextBlock Grid.Column="1" Classes="value small" Text="{Binding DiskText}" />
         </Grid>
       </Grid>

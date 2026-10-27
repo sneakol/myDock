@@ -88,7 +88,7 @@ public sealed partial class ContainerViewModel : ObservableObject
         MemoryPercent = stats.MemoryPercent;
         NetworkText = $"RX {Format.Rate(stats.NetRxRate)}  TX {Format.Rate(stats.NetTxRate)}";
         DiskText = $"R {Format.Rate(stats.BlockReadRate)}  W {Format.Rate(stats.BlockWriteRate)}";
-        Details = $"{info.Image}\n{Format.Percent(stats.MemoryPercent)} della memoria · {stats.Pids} processi";
+        Details = $"{info.Image}\n{Format.Percent(stats.MemoryPercent)} of memory · {stats.Pids} processes";
     }
 
     /// <summary>Drops the CPU history, e.g. after the panel was hidden and sampling paused.</summary>

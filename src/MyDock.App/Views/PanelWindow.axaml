@@ -116,16 +116,16 @@
                      Margin="10,1,0,0" VerticalAlignment="Center" />
           <Button Grid.Column="2" Classes="icon" Command="{Binding CycleSortCommand}"
                   IsVisible="{Binding IsConnected}"
-                  ToolTip.Tip="Cambia ordinamento: nome, CPU, RAM">
+                  ToolTip.Tip="Change sort: name, CPU, RAM">
             <TextBlock>
-              <Run Text="Ordine:" /> <Run Text="{Binding SortLabel}" />
+              <Run Text="Sort:" /> <Run Text="{Binding SortLabel}" />
             </TextBlock>
           </Button>
           <ToggleButton Grid.Column="3" Classes="icon" IsChecked="{Binding IsPinned}"
-                        ToolTip.Tip="Tieni aperto quando perde il focus">
+                        ToolTip.Tip="Keep open when focus is lost">
             <PathIcon Data="{StaticResource IconPin}" />
           </ToggleButton>
-          <Button Grid.Column="4" Classes="icon" Command="{Binding HideCommand}" ToolTip.Tip="Nascondi">
+          <Button Grid.Column="4" Classes="icon" Command="{Binding HideCommand}" ToolTip.Tip="Hide">
             <PathIcon Data="{StaticResource IconClose}" />
           </Button>
         </Grid>
@@ -133,15 +133,15 @@
 
       <!-- Connection state -->
       <StackPanel Grid.Row="1">
-        <TextBlock Classes="secondary" Margin="14,14" Text="Connessione a Docker…"
+        <TextBlock Classes="secondary" Margin="14,14" Text="Connecting to Docker…"
                    IsVisible="{Binding IsConnecting}" />
 
         <Border Background="{DynamicResource BannerBackground}" Padding="14,12"
                 IsVisible="{Binding IsUnavailable}">
           <StackPanel Spacing="4">
-            <TextBlock Classes="name" Text="Docker non raggiungibile" />
+            <TextBlock Classes="name" Text="Docker unreachable" />
             <TextBlock Classes="secondary" TextWrapping="Wrap">
-              <Run Text="Il demone non risponde su" /> <Run Text="{Binding Endpoint}" /><Run Text=". Nuovo tentativo in corso…" />
+              <Run Text="The daemon is not responding at" /> <Run Text="{Binding Endpoint}" /><Run Text=". Retrying…" />
             </TextBlock>
           </StackPanel>
         </Border>
@@ -149,13 +149,13 @@
         <Border Background="{DynamicResource BannerBackground}" Padding="14,12"
                 IsVisible="{Binding IsPermissionDenied}">
           <StackPanel Spacing="6">
-            <TextBlock Classes="name" Text="Permesso negato sul socket Docker" />
+            <TextBlock Classes="name" Text="Permission denied on the Docker socket" />
             <TextBlock Classes="secondary" TextWrapping="Wrap"
-                       Text="Aggiungi il tuo utente al gruppo docker, poi esci e rientra nella sessione:" />
+                       Text="Add your user to the docker group, then log out and back in:" />
             <Grid ColumnDefinitions="*,Auto">
               <SelectableTextBlock FontFamily="monospace" FontSize="12" VerticalAlignment="Center"
                                    Text="{Binding FixCommand}" />
-              <Button Grid.Column="1" Classes="link" Content="Copia" Click="OnCopyFixCommand" />
+              <Button Grid.Column="1" Classes="link" Content="Copy" Click="OnCopyFixCommand" />
             </Grid>
           </StackPanel>
         </Border>
@@ -164,7 +164,7 @@
       <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
         <StackPanel>
           <TextBlock Classes="secondary" Margin="14,18" HorizontalAlignment="Center"
-                     Text="Nessun container attivo" IsVisible="{Binding IsEmpty}" />
+                     Text="No running containers" IsVisible="{Binding IsEmpty}" />
 
           <ItemsControl ItemsSource="{Binding Active}">
             <ItemsControl.ItemTemplate>

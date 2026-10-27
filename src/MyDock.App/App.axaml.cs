@@ -66,10 +66,10 @@ public partial class App : Application
 
     private void CreateTray()
     {
-        _toggleItem = new NativeMenuItem("Mostra pannello");
+        _toggleItem = new NativeMenuItem("Show panel");
         _toggleItem.Click += (_, _) => _panel?.Toggle();
 
-        var autostart = new NativeMenuItem("Avvia all'accesso")
+        var autostart = new NativeMenuItem("Start at login")
         {
             ToggleType = MenuItemToggleType.CheckBox,
             IsChecked = Autostart.IsEnabled,
@@ -80,7 +80,7 @@ public partial class App : Application
             autostart.IsChecked = Autostart.IsEnabled;
         };
 
-        var quit = new NativeMenuItem("Esci");
+        var quit = new NativeMenuItem("Quit");
         quit.Click += (_, _) => Quit();
 
         // On GNOME a click on the icon opens this menu rather than activating the icon, so showing the panel comes first.
@@ -126,7 +126,7 @@ public partial class App : Application
         if (visible)
             _viewModel?.ResetHistory();
         _monitor.StatsEnabled = visible;
-        _toggleItem?.Header = visible ? "Nascondi pannello" : "Mostra pannello";
+        _toggleItem?.Header = visible ? "Hide panel" : "Show panel";
     }
 
     private void OnMonitorChanged()
@@ -154,10 +154,10 @@ public partial class App : Application
 
         _tray.ToolTipText = snapshot.Connection switch
         {
-            ConnectionState.PermissionDenied => "myDock: permesso negato sul socket Docker",
-            ConnectionState.DaemonUnavailable => "myDock: Docker non raggiungibile",
+            ConnectionState.PermissionDenied => "myDock: permission denied on the Docker socket",
+            ConnectionState.DaemonUnavailable => "myDock: Docker unreachable",
             ConnectionState.Connecting => "myDock",
-            _ => snapshot.ActiveCount == 1 ? "myDock: 1 container attivo" : $"myDock: {snapshot.ActiveCount} container attivi",
+            _ => snapshot.ActiveCount == 1 ? "myDock: 1 active container" : $"myDock: {snapshot.ActiveCount} active containers",
         };
     }
 

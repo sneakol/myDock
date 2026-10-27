@@ -10,7 +10,7 @@ namespace MyDock.App.ViewModels;
 
 public sealed partial class PanelViewModel : ObservableObject
 {
-    private const string UngroupedHeader = "Altri";
+    private const string UngroupedHeader = "Other";
 
     private readonly ContainerMonitor _monitor;
     private readonly SettingsStore _store;
@@ -69,7 +69,7 @@ public sealed partial class PanelViewModel : ObservableObject
     {
         SortMode.Cpu => "CPU",
         SortMode.Memory => "RAM",
-        _ => "Nome",
+        _ => "Name",
     };
 
     public void Apply(MonitorSnapshot snapshot)
@@ -104,13 +104,12 @@ public sealed partial class PanelViewModel : ObservableObject
 
         IsEmpty = IsConnected && active.Count == 0;
         HasStopped = stopped.Count > 0;
-        StoppedHeader = $"Fermi ({stopped.Count})";
+        StoppedHeader = $"Stopped ({stopped.Count})";
         Summary = !IsConnected ? ""
             : active.Count switch
             {
                 0 => "",
-                1 => "1 attivo",
-                var n => $"{n} attivi",
+                var n => $"{n} active",
             };
     }
 

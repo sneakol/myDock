@@ -25,7 +25,7 @@ public static class Autostart
             [Desktop Entry]
             Type=Application
             Name=myDock
-            Comment=Container Docker attivi e risorse utilizzate
+            Comment=Running Docker containers and their resource usage
             Exec={LaunchCommand()} --hidden
             Icon=mydock
             Terminal=false
