@@ -51,6 +51,27 @@ public sealed class ContainerMonitorTests : IAsyncDisposable
     }
 
     [Fact]
+    public async Task Raises_an_alert_when_a_container_turns_unhealthy()
+    {
+        var alerts = new List<ContainerAlert>();
+        _monitor.Alerted += alert =>
+        {
+            lock (alerts)
+                alerts.Add(alert);
+        };
+
+        _monitor.Start();
+        await Connected();
+        _docker.Raise("health_status: unhealthy", "a");
+
+        await Eventually(() =>
+        {
+            lock (alerts)
+                return alerts.Any(a => a.Kind == AlertKind.Unhealthy);
+        });
+    }
+
+    [Fact]
     public async Task Relevant_event_refreshes_the_list()
     {
         _monitor.Start();

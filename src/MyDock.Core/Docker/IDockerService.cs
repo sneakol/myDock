@@ -3,7 +3,9 @@ using MyDock.Core.Models;
 namespace MyDock.Core.Docker;
 
 /// <param name="Action">Docker event action, e.g. "start", "die", "health_status: healthy".</param>
-public sealed record ContainerEvent(string Action, string ContainerId);
+/// <param name="Name">The container's name, when the event carries it.</param>
+/// <param name="ExitCode">Only set on "die".</param>
+public sealed record ContainerEvent(string Action, string ContainerId, string? Name = null, int? ExitCode = null);
 
 /// <summary>The only seam that knows about the Docker client library.</summary>
 public interface IDockerService : IDisposable

@@ -54,8 +54,17 @@ public sealed class DockerService : IDockerService
         };
         return Bridge<Message, ContainerEvent>(
             (progress, token) => _client.System.MonitorEventsAsync(parameters, progress, token),
-            message => message.Actor?.ID is { } id ? new ContainerEvent(message.Action ?? "", id) : null,
+            MapEvent,
             ct);
+    }
+
+    private static ContainerEvent? MapEvent(Message message)
+    {
+        if (message.Actor?.ID is not { } id)
+            return null;
+
+        string? Attribute(string key) => message.Actor.Attributes is { } a && a.TryGetValue(key, out var value) ? value : null;
+        return new ContainerEvent(message.Action ?? "", id, Attribute("name"), int.TryParse(Attribute("exitCode"), out var code) ? code : null);
     }
 
     public IAsyncEnumerable<string> StreamLogsAsync(string id, int tail, bool follow, CancellationToken ct) =>

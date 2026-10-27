@@ -30,6 +30,7 @@ public sealed class ContainerMonitor : IAsyncDisposable
     private readonly Lock _gate = new();
     private readonly Dictionary<string, Tracked> _containers = [];
     private readonly CancellationTokenSource _cts = new();
+    private readonly AlertTracker _alerts = new();
 
     private ConnectionState _connection = ConnectionState.Connecting;
     private bool _statsEnabled;
@@ -46,6 +47,9 @@ public sealed class ContainerMonitor : IAsyncDisposable
 
     /// <summary>Raised from a background thread whenever <see cref="Current"/> has been replaced.</summary>
     public event Action? Changed;
+
+    /// <summary>Raised from a background thread for a crash, OOM kill, unhealthy transition or restart loop. Handler exceptions are swallowed.</summary>
+    public event Action<ContainerAlert>? Alerted;
 
     public MonitorSnapshot Current => _current;
 
@@ -207,6 +211,17 @@ public sealed class ContainerMonitor : IAsyncDisposable
         {
             await foreach (var e in _docker.WatchEventsAsync(since, ct).ConfigureAwait(false))
             {
+                if (_alerts.Process(e, DateTimeOffset.UtcNow) is { } alert)
+                {
+                    try
+                    {
+                        Alerted?.Invoke(alert);
+                    }
+                    catch (Exception)
+                    {
+                        // A broken handler must not end the event session.
+                    }
+                }
                 if (IsRelevant(e.Action))
                     requests.TryWrite(true);
             }
