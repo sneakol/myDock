@@ -12,16 +12,19 @@ public static class Autostart
 
     public static bool IsEnabled => File.Exists(EntryPath);
 
-    public static void Set(bool enabled)
+    /// <summary>Returns false when the entry could not be written or removed.</summary>
+    public static bool Set(bool enabled)
     {
-        if (!enabled)
+        try
         {
-            File.Delete(EntryPath);
-            return;
-        }
+            if (!enabled)
+            {
+                File.Delete(EntryPath);
+                return true;
+            }
 
-        Directory.CreateDirectory(Path.GetDirectoryName(EntryPath)!);
-        File.WriteAllText(EntryPath, $"""
+            Directory.CreateDirectory(Path.GetDirectoryName(EntryPath)!);
+            File.WriteAllText(EntryPath, $"""
             [Desktop Entry]
             Type=Application
             Name=myDock
@@ -32,6 +35,12 @@ public static class Autostart
             X-GNOME-Autostart-enabled=true
 
             """);
+            return true;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return false;
+        }
     }
 
     private static string LaunchCommand()

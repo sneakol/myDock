@@ -20,7 +20,10 @@ public sealed class Settings
     public Dictionary<string, string> EnvChoice { get; set; } = [];
 }
 
-/// <summary>Persists <see cref="Settings"/> as JSON in the user's config directory. Never throws: settings are a convenience.</summary>
+/// <summary>
+/// Persists <see cref="Settings"/> as JSON in the user's config directory. Never throws: settings are a convenience.
+/// Writes are debounced off the calling thread; call <see cref="Flush"/> before exit.
+/// </summary>
 public sealed class SettingsStore
 {
     private static readonly JsonSerializerOptions Options = new()
@@ -29,9 +32,18 @@ public sealed class SettingsStore
         Converters = { new JsonStringEnumConverter() },
     };
 
-    private readonly string _path;
+    private static readonly TimeSpan SaveDelay = TimeSpan.FromMilliseconds(300);
 
-    public SettingsStore(string? path = null) => _path = path ?? DefaultPath;
+    private readonly string _path;
+    private readonly object _gate = new();
+    private readonly Timer _timer;
+    private string? _pending;
+
+    public SettingsStore(string? path = null)
+    {
+        _path = path ?? DefaultPath;
+        _timer = new Timer(_ => Flush());
+    }
 
     private static string DefaultPath => Path.Combine(
         Environment.GetEnvironmentVariable("XDG_CONFIG_HOME") is { Length: > 0 } dir
@@ -52,15 +64,34 @@ public sealed class SettingsStore
         }
     }
 
+    /// <summary>Serializes now (the caller may keep mutating <paramref name="settings"/>) and writes after a short delay.</summary>
     public void Save(Settings settings)
     {
-        try
+        var json = JsonSerializer.Serialize(settings, Options);
+        lock (_gate)
+            _pending = json;
+        _timer.Change(SaveDelay, Timeout.InfiniteTimeSpan);
+    }
+
+    /// <summary>Writes any pending save now.</summary>
+    public void Flush()
+    {
+        lock (_gate)
         {
-            Directory.CreateDirectory(Path.GetDirectoryName(_path)!);
-            File.WriteAllText(_path, JsonSerializer.Serialize(settings, Options));
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
+            if (_pending is null)
+                return;
+
+            try
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(_path)!);
+                File.WriteAllText(_path, _pending);
+            }
+            catch (Exception)
+            {
+                // Runs on a timer thread: anything escaping here would take the process down.
+            }
+
+            _pending = null;
         }
     }
 }

@@ -17,6 +17,8 @@ public partial class App : Application
     private readonly SingleInstance? _instance;
     private readonly bool _startHidden;
 
+    private readonly SettingsStore _store = new();
+
     private DockerService? _docker;
     private ContainerMonitor? _monitor;
     private PanelViewModel? _viewModel;
@@ -43,7 +45,7 @@ public partial class App : Application
         {
             _docker = new DockerService();
             _monitor = new ContainerMonitor(_docker);
-            _viewModel = new PanelViewModel(_monitor, new SettingsStore(), new ProcessComposeRunner(), _docker.Endpoint.ToString());
+            _viewModel = new PanelViewModel(_monitor, _store, new ProcessComposeRunner(), _docker.Endpoint.ToString());
             _viewModel.QuitRequested += Quit;
             _panel = new PanelWindow { DataContext = _viewModel };
             _panel.PropertyChanged += OnPanelPropertyChanged;
@@ -144,6 +146,7 @@ public partial class App : Application
 
     private void Cleanup()
     {
+        _store.Flush();
         _tray?.Dispose();
         if (_monitor is not null)
         {

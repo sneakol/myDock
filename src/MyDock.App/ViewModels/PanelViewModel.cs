@@ -200,7 +200,11 @@ public sealed partial class PanelViewModel : ObservableObject
         _store.Save(_settings);
     }
 
-    partial void OnStartAtLoginChanged(bool value) => Autostart.Set(value);
+    partial void OnStartAtLoginChanged(bool value)
+    {
+        if (!Autostart.Set(value))
+            StartAtLogin = Autostart.IsEnabled;
+    }
 
     partial void OnImageSharedChanged(bool value)
     {
