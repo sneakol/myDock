@@ -1,8 +1,8 @@
 [Desktop Entry]
 Type=Application
 Name=myDock
-GenericName=Monitor dei container Docker
-Comment=Container Docker attivi e risorse utilizzate
+GenericName=Docker container monitor
+Comment=Running Docker containers and their resource usage
 Exec=@EXEC@
 Icon=mydock
 Terminal=false

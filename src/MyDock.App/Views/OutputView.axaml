@@ -1,0 +1,32 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:loc="using:MyDock.App.Localization"
+             xmlns:vm="using:MyDock.App.ViewModels"
+             x:Class="MyDock.App.Views.OutputView"
+             x:DataType="vm:OutputViewModel">
+  <Border Background="{DynamicResource PanelBackground}">
+    <Grid RowDefinitions="Auto,Auto,*">
+      <Grid ColumnDefinitions="*,Auto,Auto,Auto" Margin="14,8,6,8">
+        <StackPanel VerticalAlignment="Center">
+          <TextBlock Classes="title" Text="{Binding Title}" TextTrimming="CharacterEllipsis" />
+          <TextBlock Classes="secondary" Text="{Binding Status}" TextTrimming="CharacterEllipsis"
+                     IsVisible="{Binding Status, Converter={x:Static ObjectConverters.IsNotNull}}" />
+        </StackPanel>
+        <Button Grid.Column="1" Classes="link" Content="{loc:L Common.Copy}" Click="OnCopy" />
+        <Button Grid.Column="2" Classes="link" Content="{loc:L Common.Cancel}" Command="{Binding CancelCommand}"
+                IsVisible="{Binding IsRunning}" />
+        <Button Grid.Column="3" Classes="icon" Click="OnClose" ToolTip.Tip="{loc:L Common.Close}"
+                IsVisible="{Binding IsFinished}">
+          <PathIcon Data="{StaticResource IconClose}" />
+        </Button>
+      </Grid>
+
+      <ProgressBar Grid.Row="1" Classes="busy" IsIndeterminate="True" IsVisible="{Binding IsRunning}" />
+
+      <ScrollViewer Grid.Row="2" x:Name="Scroller" HorizontalScrollBarVisibility="Disabled" MaxHeight="520">
+        <SelectableTextBlock Margin="14,0,14,10" FontFamily="monospace" FontSize="11"
+                             TextWrapping="Wrap" Text="{Binding Text}" />
+      </ScrollViewer>
+    </Grid>
+  </Border>
+</UserControl>

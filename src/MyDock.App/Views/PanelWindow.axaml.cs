@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
+using Avalonia.Platform.Storage;
 using MyDock.App.ViewModels;
 
 namespace MyDock.App.Views;
@@ -12,17 +13,21 @@ public partial class PanelWindow : Window
     /// <summary>Gap between the panel and the edges of the screen's working area, in device-independent pixels.</summary>
     private const int ScreenGap = 4;
 
-    // Opening from the tray menu makes focus bounce for a moment: a blur that soon after showing is not the user leaving.
+    // Opening from the tray makes focus bounce for a moment: a blur that soon after showing is not the user leaving.
     private static readonly TimeSpan BlurGrace = TimeSpan.FromMilliseconds(400);
 
     private PanelViewModel? _viewModel;
     private DateTime _shownAt;
     private bool _closing;
+    private bool _picking;
 
     public PanelWindow()
     {
         InitializeComponent();
         Header.PointerPressed += OnHeaderPointerPressed;
+        PanelLogs.CloseRequested += () => _viewModel?.CloseLogs();
+        PanelOutput.CloseRequested += () => _viewModel?.CloseOutput();
+        PanelLogs.PopOutRequested += () => _viewModel?.PopOutLogsCommand.Execute(null);
     }
 
     public void Toggle()
@@ -36,6 +41,7 @@ public partial class PanelWindow : Window
     public void Reveal()
     {
         _shownAt = DateTime.UtcNow;
+        _viewModel?.RefreshFiles();
         PlaceOnScreen();
         Show();
         Activate();
@@ -52,11 +58,20 @@ public partial class PanelWindow : Window
     {
         base.OnDataContextChanged(e);
         if (_viewModel is not null)
+        {
             _viewModel.HideRequested -= Hide;
+            _viewModel.LogsPoppedOut -= OnLogsPoppedOut;
+        }
+
         _viewModel = DataContext as PanelViewModel;
         if (_viewModel is not null)
+        {
             _viewModel.HideRequested += Hide;
+            _viewModel.LogsPoppedOut += OnLogsPoppedOut;
+        }
     }
+
+    private static void OnLogsPoppedOut(LogViewModel logs) => new LogWindow { DataContext = logs }.Show();
 
     protected override void OnClosing(WindowClosingEventArgs e)
     {
@@ -72,16 +87,36 @@ public partial class PanelWindow : Window
     protected override void OnKeyDown(KeyEventArgs e)
     {
         base.OnKeyDown(e);
-        if (e.Key == Key.Escape)
+        if (e.Key != Key.Escape)
+            return;
+
+        if (_viewModel is { IsShowingOutput: true })
+            _viewModel.CloseOutput();
+        else if (_viewModel is { Disk.Detail: not null })
+            _viewModel.Disk.CloseDetail();
+        else if (_viewModel is { IsShowingDisk: true })
+            _viewModel.CloseDisk();
+        else if (_viewModel is { IsShowingSettings: true })
+            _viewModel.CloseSettings();
+        else if (_viewModel is { IsDeleting: true })
+            _viewModel.CancelDeleteCommand.Execute(null);
+        else if (_viewModel is { IsShowingLogs: true })
+            _viewModel.CloseLogs();
+        else
             Hide();
     }
 
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
         base.OnPropertyChanged(change);
+        // A hidden panel must not keep following a container's log in the background.
+        if (change.Property == IsVisibleProperty && !change.GetNewValue<bool>())
+            _viewModel?.CloseLogs();
+
         if (change.Property == IsActiveProperty
             && !change.GetNewValue<bool>()
             && IsVisible
+            && !_picking
             && _viewModel is { IsPinned: false }
             && DateTime.UtcNow - _shownAt > BlurGrace)
         {
@@ -109,9 +144,51 @@ public partial class PanelWindow : Window
             BeginMoveDrag(e);
     }
 
+    private void OnCloseDisk(object? sender, RoutedEventArgs e) => _viewModel?.CloseDisk();
+
+    private async void OnCopyDetail(object? sender, RoutedEventArgs e)
+    {
+        try
+        {
+            if (Clipboard is { } clipboard && _viewModel?.Disk?.Detail is { } detail)
+                await clipboard.SetTextAsync(detail.Json);
+        }
+        catch (Exception)
+        {
+            // async void: a clipboard failure must not take the app down.
+        }
+    }
+
     private async void OnCopyFixCommand(object? sender, RoutedEventArgs e)
     {
         if (Clipboard is { } clipboard && _viewModel is { } viewModel)
             await clipboard.SetTextAsync(viewModel.FixCommand);
+    }
+
+    // The native picker takes focus, which would otherwise hide the panel under it.
+    private async void OnLoadFile(object? sender, RoutedEventArgs e)
+    {
+        if (_viewModel is null)
+            return;
+
+        _picking = true;
+        try
+        {
+            var picked = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+            {
+                Title = "Load a Dockerfile or docker-compose file",
+                AllowMultiple = true,
+            });
+
+            var errors = picked.Select(f => f.TryGetLocalPath()).OfType<string>()
+                .Select(_viewModel.AddFile).OfType<string>().Distinct().ToList();
+            LoadError.Text = string.Join('\n', errors);
+            LoadError.IsVisible = errors.Count > 0;
+        }
+        finally
+        {
+            _picking = false;
+            Activate();
+        }
     }
 }

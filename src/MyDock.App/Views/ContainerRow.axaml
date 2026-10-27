@@ -1,14 +1,64 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:loc="using:MyDock.App.Localization"
              xmlns:vm="using:MyDock.App.ViewModels"
              xmlns:c="using:MyDock.App.Controls"
              xmlns:v="using:MyDock.App.Views"
+             xmlns:core="using:MyDock.Core.Docker"
              x:Class="MyDock.App.Views.ContainerRow"
              x:DataType="vm:ContainerViewModel">
   <StackPanel>
-    <TextBlock Classes="group" Text="{Binding GroupHeader}" IsVisible="{Binding ShowGroupHeader}" />
+    <TextBlock Classes="group" Text="{Binding GroupHeader}" IsVisible="{Binding IsPlainHeader}" />
 
-    <StackPanel Margin="14,8,10,10" Spacing="7">
+    <Grid ColumnDefinitions="*,Auto" Margin="6,6,10,0" IsVisible="{Binding IsComposeHeader}">
+      <Button Classes="icon" Command="{Binding ToggleGroupCommand}" HorizontalAlignment="Left"
+              ToolTip.Tip="{loc:L Row.TipToggleCompose}">
+        <StackPanel Orientation="Horizontal" Spacing="4">
+          <PathIcon Data="{StaticResource IconChevron}" Classes.expanded="{Binding !IsGroupCollapsed}">
+            <PathIcon.Styles>
+              <Style Selector="PathIcon.expanded">
+                <Setter Property="RenderTransform" Value="rotate(90deg)" />
+              </Style>
+            </PathIcon.Styles>
+          </PathIcon>
+          <TextBlock Classes="group" Margin="0" VerticalAlignment="Center" Text="{Binding GroupHeader}" />
+          <TextBlock Classes="group" Margin="0" VerticalAlignment="Center"
+                     Text="{Binding GroupCount, StringFormat='· {0}'}" />
+        </StackPanel>
+      </Button>
+      <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="2" IsEnabled="{Binding !IsGroupBusy}">
+        <c:ConfirmButton Classes="icon confirm" Command="{Binding GroupActionCommand}" CommandParameter="{x:Static core:ProjectAction.Restart}"
+                         IsVisible="{Binding IsActive}" ToolTip.Tip="{loc:L Row.TipRestartCompose}">
+          <Panel>
+            <PathIcon Data="{StaticResource IconRestart}" IsVisible="{Binding !$parent[c:ConfirmButton].IsArmed}" />
+            <TextBlock Text="{loc:L Row.RestartAllQ}" IsVisible="{Binding $parent[c:ConfirmButton].IsArmed}" />
+          </Panel>
+        </c:ConfirmButton>
+        <c:ConfirmButton Classes="icon confirm" Command="{Binding GroupActionCommand}" CommandParameter="{x:Static core:ProjectAction.Stop}"
+                         IsVisible="{Binding IsActive}" ToolTip.Tip="{loc:L Row.TipStopCompose}">
+          <Panel>
+            <PathIcon Data="{StaticResource IconStop}" IsVisible="{Binding !$parent[c:ConfirmButton].IsArmed}" />
+            <TextBlock Text="{loc:L Row.StopAllQ}" IsVisible="{Binding $parent[c:ConfirmButton].IsArmed}" />
+          </Panel>
+        </c:ConfirmButton>
+        <Button Classes="icon" Command="{Binding GroupActionCommand}" CommandParameter="{x:Static core:ProjectAction.Start}"
+                IsVisible="{Binding !IsActive}" ToolTip.Tip="{loc:L Row.TipStartCompose}">
+          <PathIcon Data="{StaticResource IconPlay}" />
+        </Button>
+        <c:ConfirmButton Classes="icon confirm" Command="{Binding GroupActionCommand}" CommandParameter="{x:Static core:ProjectAction.Remove}"
+                         IsVisible="{Binding !IsActive}" ToolTip.Tip="{loc:L Row.TipDeleteCompose}">
+          <Panel>
+            <PathIcon Data="{StaticResource IconTrash}" IsVisible="{Binding !$parent[c:ConfirmButton].IsArmed}" />
+            <TextBlock Text="{loc:L Row.DeleteAllQ}" IsVisible="{Binding $parent[c:ConfirmButton].IsArmed}" />
+          </Panel>
+        </c:ConfirmButton>
+      </StackPanel>
+    </Grid>
+    <ProgressBar Classes="busy" Margin="14,4,10,0" IsIndeterminate="True" IsVisible="{Binding IsGroupBusy}" />
+    <TextBlock Classes="error" Margin="14,4,10,0" Text="{Binding GroupError}" TextWrapping="Wrap"
+               IsVisible="{Binding GroupError, Converter={x:Static ObjectConverters.IsNotNull}}" />
+
+    <StackPanel Margin="14,8,10,10" Spacing="7" IsVisible="{Binding !IsGroupCollapsed}">
       <Grid ColumnDefinitions="Auto,*,Auto" ToolTip.Tip="{Binding Details}">
         <Ellipse Width="9" Height="9" Margin="0,0,9,0" VerticalAlignment="Center"
                  Fill="{Binding Indicator, Converter={x:Static v:Converters.IndicatorBrush}}" />
@@ -16,35 +66,91 @@
         <StackPanel Grid.Column="1" Spacing="1">
           <TextBlock Classes="name" Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
           <TextBlock Classes="secondary" Text="{Binding Subtitle}" TextTrimming="CharacterEllipsis" />
+          <TextBlock Classes="secondary" Text="{Binding PortsText}" TextTrimming="CharacterEllipsis"
+                     ToolTip.Tip="{Binding PortsText}"
+                     IsVisible="{Binding PortsText, Converter={x:Static ObjectConverters.IsNotNull}}" />
+          <TextBlock Classes="secondary" Text="{Binding NetworksText}" TextTrimming="CharacterEllipsis"
+                     ToolTip.Tip="{Binding NetworksText}"
+                     IsVisible="{Binding NetworksText, Converter={x:Static ObjectConverters.IsNotNull}}" />
         </StackPanel>
 
         <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="2" Margin="8,0,0,0"
                     VerticalAlignment="Center" IsEnabled="{Binding !IsBusy}">
+          <Button Classes="icon" Command="{Binding ShowLogsCommand}" ToolTip.Tip="{loc:L Row.TipLogs}">
+            <PathIcon Data="{StaticResource IconLogs}" />
+          </Button>
+          <Button Classes="icon" Command="{Binding OpenShellCommand}"
+                  IsVisible="{Binding IsActive}" ToolTip.Tip="{loc:L Row.TipShell}">
+            <PathIcon Data="{StaticResource IconTerminal}" />
+          </Button>
           <c:ConfirmButton Classes="icon confirm" Command="{Binding RestartCommand}"
-                           IsVisible="{Binding IsActive}" ToolTip.Tip="Riavvia">
+                           IsVisible="{Binding IsActive}" ToolTip.Tip="{loc:L Row.TipRestart}">
             <Panel>
               <PathIcon Data="{StaticResource IconRestart}" IsVisible="{Binding !$parent[c:ConfirmButton].IsArmed}" />
-              <TextBlock Text="Riavviare?" IsVisible="{Binding $parent[c:ConfirmButton].IsArmed}" />
+              <TextBlock Text="{loc:L Row.RestartQ}" IsVisible="{Binding $parent[c:ConfirmButton].IsArmed}" />
             </Panel>
           </c:ConfirmButton>
           <c:ConfirmButton Classes="icon confirm" Command="{Binding StopCommand}"
-                           IsVisible="{Binding IsActive}" ToolTip.Tip="Ferma">
+                           IsVisible="{Binding IsActive}" ToolTip.Tip="{loc:L Row.TipStop}">
             <Panel>
               <PathIcon Data="{StaticResource IconStop}" IsVisible="{Binding !$parent[c:ConfirmButton].IsArmed}" />
-              <TextBlock Text="Fermare?" IsVisible="{Binding $parent[c:ConfirmButton].IsArmed}" />
+              <TextBlock Text="{loc:L Row.StopQ}" IsVisible="{Binding $parent[c:ConfirmButton].IsArmed}" />
             </Panel>
           </c:ConfirmButton>
+          <ToggleButton Classes="icon" IsChecked="{Binding IsMoreOpen}" ToolTip.Tip="{loc:L Row.TipMore}">
+            <PathIcon Data="{StaticResource IconMore}" />
+          </ToggleButton>
           <Button Classes="icon" Command="{Binding StartCommand}"
-                  IsVisible="{Binding !IsActive}" ToolTip.Tip="Avvia">
+                  IsVisible="{Binding !IsActive}" ToolTip.Tip="{loc:L Row.TipStart}">
             <PathIcon Data="{StaticResource IconPlay}" />
+          </Button>
+          <Button Classes="icon" Command="{Binding DeleteCommand}"
+                  IsVisible="{Binding !IsActive}" ToolTip.Tip="{loc:L Common.Delete}">
+            <PathIcon Data="{StaticResource IconTrash}" />
           </Button>
         </StackPanel>
       </Grid>
 
+      <!-- Secondary actions: inline rather than a popup, which would take focus and hide the panel. -->
+      <StackPanel Margin="18,0,4,0" Spacing="2" IsVisible="{Binding IsMoreOpen}" IsEnabled="{Binding !IsBusy}">
+        <WrapPanel>
+          <Button Classes="icon" Command="{Binding PauseCommand}"
+                  IsVisible="{Binding CanPause}" ToolTip.Tip="{loc:L Row.TipPause}">
+            <PathIcon Data="{StaticResource IconPause}" />
+          </Button>
+          <Button Classes="icon" Command="{Binding UnpauseCommand}"
+                  IsVisible="{Binding IsPaused}" ToolTip.Tip="{loc:L Row.TipUnpause}">
+            <PathIcon Data="{StaticResource IconPlay}" />
+          </Button>
+          <c:ConfirmButton Classes="icon confirm" Command="{Binding KillCommand}"
+                           IsVisible="{Binding IsActive}" ToolTip.Tip="{loc:L Row.TipKill}">
+            <Panel>
+              <PathIcon Data="{StaticResource IconKill}" IsVisible="{Binding !$parent[c:ConfirmButton].IsArmed}" />
+              <TextBlock Text="{loc:L Row.KillQ}" IsVisible="{Binding $parent[c:ConfirmButton].IsArmed}" />
+            </Panel>
+          </c:ConfirmButton>
+          <Button Classes="link" Content="{loc:L Row.CopyName}" Click="OnCopyName" />
+          <Button Classes="link" Content="{loc:L Row.CopyId}" Click="OnCopyId" />
+        </WrapPanel>
+        <ItemsControl ItemsSource="{Binding PublicPorts}" IsVisible="{Binding HasPublicPorts}">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <WrapPanel />
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="x:Int32">
+              <Button Classes="link" Content="{Binding Converter={x:Static v:Converters.OpenPort}}" Tag="{Binding}" Click="OnOpenPort"
+                      ToolTip.Tip="{Binding StringFormat='http://localhost:{0}'}" />
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </StackPanel>
+
       <Grid ColumnDefinitions="*,16,*" RowDefinitions="Auto,Auto,Auto" Margin="18,0,4,0"
             IsVisible="{Binding IsActive}">
         <Grid ColumnDefinitions="Auto,*">
-          <TextBlock Classes="label" Text="CPU" />
+          <TextBlock Classes="label" Text="{loc:L Row.Cpu}" />
           <TextBlock Grid.Column="1" Classes="value" Text="{Binding CpuText}" />
         </Grid>
         <Border Grid.Row="1" Classes="chart">
@@ -52,19 +158,19 @@
                        Stroke="{DynamicResource Accent}" Fill="{DynamicResource AccentFill}" />
         </Border>
         <Grid Grid.Row="2" ColumnDefinitions="Auto,*">
-          <TextBlock Classes="label" Text="Rete" />
+          <TextBlock Classes="label" Text="{loc:L Row.Network}" />
           <TextBlock Grid.Column="1" Classes="value small" Text="{Binding NetworkText}" />
         </Grid>
 
         <Grid Grid.Column="2" ColumnDefinitions="Auto,*">
-          <TextBlock Classes="label" Text="RAM" />
+          <TextBlock Classes="label" Text="{loc:L Row.Ram}" />
           <TextBlock Grid.Column="1" Classes="value" Text="{Binding MemoryText}" />
         </Grid>
         <Border Grid.Row="1" Grid.Column="2" Classes="chart">
           <ProgressBar Classes="meter" Value="{Binding MemoryPercent}" Maximum="100" VerticalAlignment="Center" />
         </Border>
         <Grid Grid.Row="2" Grid.Column="2" ColumnDefinitions="Auto,*">
-          <TextBlock Classes="label" Text="Disco" />
+          <TextBlock Classes="label" Text="{loc:L Row.Disk}" />
           <TextBlock Grid.Column="1" Classes="value small" Text="{Binding DiskText}" />
         </Grid>
       </Grid>
@@ -74,6 +180,6 @@
                  IsVisible="{Binding Error, Converter={x:Static ObjectConverters.IsNotNull}}" />
     </StackPanel>
 
-    <Border Height="1" Background="{DynamicResource Divider}" />
+    <Border Height="1" Background="{DynamicResource Divider}" IsVisible="{Binding !IsGroupCollapsed}" />
   </StackPanel>
 </UserControl>

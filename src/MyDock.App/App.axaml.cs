@@ -9,6 +9,7 @@ using MyDock.App.Views;
 using MyDock.Core.Docker;
 using MyDock.Core.Models;
 using MyDock.Core.Monitoring;
+using MyDock.Core.Localization;
 
 namespace MyDock.App;
 
@@ -17,12 +18,13 @@ public partial class App : Application
     private readonly SingleInstance? _instance;
     private readonly bool _startHidden;
 
+    private readonly SettingsStore _store = new();
+
     private DockerService? _docker;
     private ContainerMonitor? _monitor;
     private PanelViewModel? _viewModel;
     private PanelWindow? _panel;
     private TrayIcon? _tray;
-    private NativeMenuItem? _toggleItem;
     private int _trayUpdateQueued;
 
     public App()
@@ -42,9 +44,16 @@ public partial class App : Application
     {
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop && !Design.IsDesignMode)
         {
+            Loc.Use(_store.Load().Language);
             _docker = new DockerService();
             _monitor = new ContainerMonitor(_docker);
-            _viewModel = new PanelViewModel(_monitor, new SettingsStore(), _docker.Endpoint.ToString());
+            _viewModel = new PanelViewModel(_monitor, _store, new ProcessComposeRunner(), _docker.Endpoint.ToString());
+            _monitor.Alerted += alert =>
+            {
+                if (_viewModel.Settings.Allows(alert.Kind))
+                    Notifier.Show(alert);
+            };
+            _viewModel.QuitRequested += Quit;
             _panel = new PanelWindow { DataContext = _viewModel };
             _panel.PropertyChanged += OnPanelPropertyChanged;
 
@@ -66,29 +75,11 @@ public partial class App : Application
 
     private void CreateTray()
     {
-        _toggleItem = new NativeMenuItem("Mostra pannello");
-        _toggleItem.Click += (_, _) => _panel?.Toggle();
-
-        var autostart = new NativeMenuItem("Avvia all'accesso")
-        {
-            ToggleType = MenuItemToggleType.CheckBox,
-            IsChecked = Autostart.IsEnabled,
-        };
-        autostart.Click += (_, _) =>
-        {
-            Autostart.Set(!Autostart.IsEnabled);
-            autostart.IsChecked = Autostart.IsEnabled;
-        };
-
-        var quit = new NativeMenuItem("Esci");
-        quit.Click += (_, _) => Quit();
-
-        // On GNOME a click on the icon opens this menu rather than activating the icon, so showing the panel comes first.
+        // No Menu: on GNOME a menu would swallow the click, so the icon's actions live in the panel.
         _tray = new TrayIcon
         {
             Icon = TrayIconRenderer.Render(0, error: false),
             ToolTipText = "myDock",
-            Menu = [_toggleItem, new NativeMenuItemSeparator(), autostart, new NativeMenuItemSeparator(), quit],
         };
         _tray.Clicked += (_, _) => _panel?.Toggle();
         TrayIcon.SetIcons(this, [_tray]);
@@ -126,7 +117,6 @@ public partial class App : Application
         if (visible)
             _viewModel?.ResetHistory();
         _monitor.StatsEnabled = visible;
-        _toggleItem?.Header = visible ? "Nascondi pannello" : "Mostra pannello";
     }
 
     private void OnMonitorChanged()
@@ -154,15 +144,16 @@ public partial class App : Application
 
         _tray.ToolTipText = snapshot.Connection switch
         {
-            ConnectionState.PermissionDenied => "myDock: permesso negato sul socket Docker",
-            ConnectionState.DaemonUnavailable => "myDock: Docker non raggiungibile",
+            ConnectionState.PermissionDenied => Loc.Get("Tray.Denied"),
+            ConnectionState.DaemonUnavailable => Loc.Get("Tray.Unreachable"),
             ConnectionState.Connecting => "myDock",
-            _ => snapshot.ActiveCount == 1 ? "myDock: 1 container attivo" : $"myDock: {snapshot.ActiveCount} container attivi",
+            _ => snapshot.ActiveCount == 1 ? Loc.Get("Tray.OneActive") : Loc.Get("Tray.ManyActive", snapshot.ActiveCount),
         };
     }
 
     private void Cleanup()
     {
+        _store.Flush();
         _tray?.Dispose();
         if (_monitor is not null)
         {

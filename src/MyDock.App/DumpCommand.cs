@@ -33,12 +33,12 @@ internal static class DumpCommand
             case ConnectionState.Connected:
                 break;
             case ConnectionState.PermissionDenied:
-                Console.Error.WriteLine($"Permesso negato su {docker.Endpoint}.");
-                Console.Error.WriteLine("Aggiungi il tuo utente al gruppo docker, poi esci e rientra nella sessione:");
+                Console.Error.WriteLine($"Permission denied on {docker.Endpoint}.");
+                Console.Error.WriteLine("Add your user to the docker group, then log out and back in:");
                 Console.Error.WriteLine("  sudo usermod -aG docker $USER");
                 return 1;
             default:
-                Console.Error.WriteLine($"Docker non raggiungibile su {docker.Endpoint}.");
+                Console.Error.WriteLine($"Docker unreachable at {docker.Endpoint}.");
                 return 1;
         }
 
@@ -51,7 +51,7 @@ internal static class DumpCommand
 
     private static void Print(MonitorSnapshot snapshot)
     {
-        var rows = new List<string[]> { new[] { "NOME", "STATO", "CPU", "MEMORIA", "RETE RX / TX", "DISCO R / W", "PID" } };
+        var rows = new List<string[]> { new[] { "NAME", "STATUS", "CPU", "MEMORY", "NET RX / TX", "DISK R / W", "PID" } };
         foreach (var (info, stats) in snapshot.Containers.OrderByDescending(c => c.Info.IsActive))
         {
             rows.Add(stats is null
@@ -73,6 +73,6 @@ internal static class DumpCommand
             Console.WriteLine(string.Join("  ", row.Select((cell, i) => cell.PadRight(widths[i]))).TrimEnd());
 
         if (snapshot.Containers.Count == 0)
-            Console.WriteLine("(nessun container)");
+            Console.WriteLine("(no containers)");
     }
 }

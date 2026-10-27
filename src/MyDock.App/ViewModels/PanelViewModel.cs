@@ -3,20 +3,22 @@ using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using MyDock.App.Services;
+using MyDock.Core.Docker;
 using MyDock.Core.Models;
 using MyDock.Core.Monitoring;
+using MyDock.Core.Localization;
 
 namespace MyDock.App.ViewModels;
 
 public sealed partial class PanelViewModel : ObservableObject
 {
-    private const string UngroupedHeader = "Altri";
-
     private readonly ContainerMonitor _monitor;
     private readonly SettingsStore _store;
     private readonly Settings _settings;
+    private readonly IComposeRunner _runner;
     private readonly Dictionary<string, ContainerViewModel> _byId = [];
     private int _updateQueued;
+    private HashSet<string> _statsIds = [];
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsConnecting), nameof(IsConnected), nameof(IsUnavailable), nameof(IsPermissionDenied))]
@@ -27,21 +29,61 @@ public sealed partial class PanelViewModel : ObservableObject
     [ObservableProperty] private bool _hasStopped;
     [ObservableProperty] private string _stoppedHeader = "";
     [ObservableProperty] private bool _isPinned;
-    [ObservableProperty] private bool _isStoppedExpanded;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowStopped))]
+    private bool _isStoppedExpanded;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsFiltering), nameof(ShowStopped))]
+    private string _filterText = "";
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsFiltering), nameof(ShowStopped))]
+    private bool _onlyUnhealthy;
+
+    [ObservableProperty] private bool _noMatches;
+    [ObservableProperty] private bool _isShowingSettings;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsShowingDisk))]
+    private DiskViewModel? _disk;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsShowingOutput))]
+    private OutputViewModel? _output;
+    [ObservableProperty] private bool _startAtLogin = Autostart.IsEnabled;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsDeleting))]
+    private ContainerViewModel? _pendingDelete;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsShowingLogs))]
+    private LogViewModel? _logs;
+
+    [ObservableProperty] private bool _imageShared;
+    [ObservableProperty] private bool _alsoDeleteImage;
+    [ObservableProperty] private bool _isDeleteBusy;
+    [ObservableProperty] private string? _deleteError;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(SortLabel))]
     private SortMode _sort;
 
-    public PanelViewModel(ContainerMonitor monitor, SettingsStore store, string endpoint)
+    public PanelViewModel(ContainerMonitor monitor, SettingsStore store, IComposeRunner runner, string endpoint)
     {
         _monitor = monitor;
         _store = store;
+        _runner = runner;
         _settings = store.Load();
         _isPinned = _settings.Pinned;
         _isStoppedExpanded = _settings.StoppedExpanded;
         _sort = _settings.Sort;
         Endpoint = endpoint;
+        Preferences = new SettingsViewModel(_settings, _store, () => Apply(_monitor.Current));
+
+        foreach (var path in _settings.ComposeFiles.Where(File.Exists))
+            Files.Add(new ComposeFileViewModel(path, _runner, _settings, _store, RemoveFile, RunWithOutputAsync));
 
         monitor.Changed += OnMonitorChanged;
         Apply(monitor.Current);
@@ -49,11 +91,21 @@ public sealed partial class PanelViewModel : ObservableObject
 
     public event Action? HideRequested;
 
+    public event Action? QuitRequested;
+
+    public event Action<LogViewModel>? LogsPoppedOut;
+
     public ObservableCollection<ContainerViewModel> Active { get; } = [];
 
     public ObservableCollection<ContainerViewModel> Stopped { get; } = [];
 
+    public ObservableCollection<ComposeFileViewModel> Files { get; } = [];
+
     public string Endpoint { get; }
+
+    public Settings Settings => _settings;
+
+    public SettingsViewModel Preferences { get; }
 
     public string FixCommand => "sudo usermod -aG docker $USER";
 
@@ -65,11 +117,24 @@ public sealed partial class PanelViewModel : ObservableObject
 
     public bool IsPermissionDenied => Connection == ConnectionState.PermissionDenied;
 
+    public bool IsFiltering => !string.IsNullOrWhiteSpace(FilterText) || OnlyUnhealthy;
+
+    // Matches among stopped containers must not hide behind the collapsed section.
+    public bool ShowStopped => IsStoppedExpanded || IsFiltering;
+
+    public bool IsDeleting => PendingDelete is not null;
+
+    public bool IsShowingDisk => Disk is not null;
+
+    public bool IsShowingOutput => Output is not null;
+
+    public bool IsShowingLogs => Logs is not null;
+
     public string SortLabel => Sort switch
     {
-        SortMode.Cpu => "CPU",
-        SortMode.Memory => "RAM",
-        _ => "Nome",
+        SortMode.Cpu => Loc.Get("Row.Cpu"),
+        SortMode.Memory => Loc.Get("Row.Ram"),
+        _ => Loc.Get("Panel.SortName"),
     };
 
     public void Apply(MonitorSnapshot snapshot)
@@ -83,35 +148,62 @@ public sealed partial class PanelViewModel : ObservableObject
             if (_byId.TryGetValue(container.Info.Id, out var existing))
                 existing.Update(container);
             else
-                _byId[container.Info.Id] = new ContainerViewModel(_monitor, container);
+                _byId[container.Info.Id] = new ContainerViewModel(_monitor, container, _settings, RequestDelete, ToggleGroup, RunGroupAsync, RequestLogs);
         }
 
         foreach (var id in _byId.Keys.Where(id => !seen.Contains(id)).ToList())
             _byId.Remove(id);
 
-        var active = OrderActive(_byId.Values.Where(c => c.IsActive));
-        var stopped = _byId.Values
-            .Where(c => !c.IsActive)
-            .OrderBy(c => c.Name, StringComparer.OrdinalIgnoreCase)
-            .ToList();
+        var visible = _byId.Values.Where(c =>
+            ContainerFilter.Matches(FilterText, c.Name, c.Image, c.ComposeProject) && (!OnlyUnhealthy || c.IsUnhealthy)).ToList();
+        var active = OrderActive(visible.Where(c => c.IsActive));
+        var stopped = ComposeGrouping.Order(visible.Where(c => !c.IsActive), c => c.ComposeProject, c => c.Name);
 
-        AssignGroupHeaders(active);
-        foreach (var container in stopped)
-            container.ShowGroupHeader = false;
+        AssignGroups(active);
+        AssignGroups(stopped);
+        foreach (var file in Files)
+            file.Track(_byId.Values);
 
         Sync(Active, active);
         Sync(Stopped, stopped);
+        UpdateStatsScope(active);
 
-        IsEmpty = IsConnected && active.Count == 0;
+        var activeCount = _byId.Values.Count(c => c.IsActive);
+        IsEmpty = IsConnected && active.Count == 0 && (!IsFiltering || _byId.Count == 0);
+        NoMatches = IsConnected && IsFiltering && visible.Count == 0 && _byId.Count > 0;
         HasStopped = stopped.Count > 0;
-        StoppedHeader = $"Fermi ({stopped.Count})";
+        StoppedHeader = Loc.Get("Panel.StoppedHeader", stopped.Count);
         Summary = !IsConnected ? ""
-            : active.Count switch
+            : activeCount switch
             {
                 0 => "",
-                1 => "1 attivo",
-                var n => $"{n} attivi",
+                var n => Loc.Get("Panel.ActiveCount", n),
             };
+
+        // After a failed delete the container may already be gone, and the message is all the user has left.
+        if (PendingDelete is { } pending)
+        {
+            if (!IsDeleteBusy && DeleteError is null && (!_byId.ContainsKey(pending.Id) || pending.IsActive || !IsConnected))
+                CancelDelete();
+            else
+                ImageShared = _monitor.IsImageShared(pending.ImageId, pending.Id);
+        }
+    }
+
+    // Rows in a collapsed group or filtered out are not on screen: streaming their stats is wasted work.
+    private void UpdateStatsScope(List<ContainerViewModel> active)
+    {
+        var ids = active.Where(c => !c.IsGroupCollapsed).Select(c => c.Id).ToHashSet();
+
+        // A row coming back has a gap in its history.
+        foreach (var id in ids.Where(id => !_statsIds.Contains(id)))
+        {
+            if (_byId.TryGetValue(id, out var container))
+                container.ResetHistory();
+        }
+
+        _statsIds = ids;
+        _monitor.SetStatsScope(ids);
     }
 
     /// <summary>Forgets the CPU histories: they have a gap whenever the panel was hidden.</summary>
@@ -127,10 +219,119 @@ public sealed partial class PanelViewModel : ObservableObject
         _store.Save(_settings);
     }
 
+    partial void OnFilterTextChanged(string value) => Apply(_monitor.Current);
+
+    partial void OnOnlyUnhealthyChanged(bool value) => Apply(_monitor.Current);
+
     partial void OnIsStoppedExpandedChanged(bool value)
     {
         _settings.StoppedExpanded = value;
         _store.Save(_settings);
+    }
+
+    /// <summary>Adds a Dockerfile or compose file; returns an error message when it is not one.</summary>
+    public string? AddFile(string path)
+    {
+        if (ComposeFiles.Detect(path) is null)
+            return Loc.Get("Panel.NotAComposeFile");
+
+        if (Files.Any(f => f.Path == path))
+            return null;
+
+        var file = new ComposeFileViewModel(path, _runner, _settings, _store, RemoveFile, RunWithOutputAsync);
+        file.Track(_byId.Values);
+        Files.Add(file);
+        _settings.ComposeFiles = Files.Select(f => f.Path).ToList();
+        _store.Save(_settings);
+        return null;
+    }
+
+    public void RefreshFiles()
+    {
+        foreach (var file in Files)
+            file.Refresh();
+    }
+
+    private void RemoveFile(ComposeFileViewModel file)
+    {
+        Files.Remove(file);
+        _settings.ComposeFiles = Files.Select(f => f.Path).ToList();
+        _settings.EnvChoice.Remove(file.Path);
+        _store.Save(_settings);
+    }
+
+    partial void OnStartAtLoginChanged(bool value)
+    {
+        if (!Autostart.Set(value))
+            StartAtLogin = Autostart.IsEnabled;
+    }
+
+    partial void OnImageSharedChanged(bool value)
+    {
+        if (value)
+            AlsoDeleteImage = false;
+    }
+
+    private void RequestDelete(ContainerViewModel container)
+    {
+        DeleteError = null;
+        AlsoDeleteImage = false;
+        ImageShared = _monitor.IsImageShared(container.ImageId, container.Id);
+        PendingDelete = container;
+    }
+
+    private void RequestLogs(ContainerViewModel container)
+    {
+        Logs?.Dispose();
+        Logs = new LogViewModel(_monitor, container);
+    }
+
+    [RelayCommand]
+    public void CloseLogs()
+    {
+        Logs?.Dispose();
+        Logs = null;
+    }
+
+    // The window takes over the view model, so it must not be disposed here.
+    [RelayCommand]
+    private void PopOutLogs()
+    {
+        if (Logs is not { } logs)
+            return;
+
+        Logs = null;
+        LogsPoppedOut?.Invoke(logs);
+    }
+
+    [RelayCommand]
+    private void CancelDelete()
+    {
+        PendingDelete = null;
+        DeleteError = null;
+    }
+
+    [RelayCommand]
+    private async Task ConfirmDeleteAsync()
+    {
+        if (PendingDelete is not { } container)
+            return;
+
+        DeleteError = null;
+        IsDeleteBusy = true;
+        try
+        {
+            await _monitor.DeleteContainerAsync(container.Id, AlsoDeleteImage && !ImageShared);
+            CancelDelete();
+        }
+        catch (Exception ex)
+        {
+            DeleteError = ex.Message;
+        }
+        finally
+        {
+            IsDeleteBusy = false;
+        }
     }
 
     partial void OnSortChanged(SortMode value)
@@ -140,8 +341,39 @@ public sealed partial class PanelViewModel : ObservableObject
         Apply(_monitor.Current);
     }
 
+    /// <summary>Shows the output of a long docker command in an overlay; it closes by itself on success and stays up to be read on failure.</summary>
+    private async Task RunWithOutputAsync(string title, Func<Action<string>, CancellationToken, Task> run)
+    {
+        var output = new OutputViewModel(title);
+        Output = output;
+        if (await output.RunAsync(run))
+            Output = null;
+    }
+
+    [RelayCommand]
+    public void CloseOutput()
+    {
+        if (Output is { IsFinished: true })
+            Output = null;
+    }
+
+    [RelayCommand]
+    private void ShowDisk() => Disk = new DiskViewModel(_monitor);
+
+    [RelayCommand]
+    public void CloseDisk() => Disk = null;
+
+    [RelayCommand]
+    private void ShowSettings() => IsShowingSettings = true;
+
+    [RelayCommand]
+    public void CloseSettings() => IsShowingSettings = false;
+
     [RelayCommand]
     private void Hide() => HideRequested?.Invoke();
+
+    [RelayCommand]
+    private void Quit() => QuitRequested?.Invoke();
 
     [RelayCommand]
     private void CycleSort() => Sort = Sort switch
@@ -167,32 +399,40 @@ public sealed partial class PanelViewModel : ObservableObject
         });
     }
 
-    private List<ContainerViewModel> OrderActive(IEnumerable<ContainerViewModel> containers)
-    {
-        var ordered = Sort switch
+    private List<ContainerViewModel> OrderActive(IEnumerable<ContainerViewModel> containers) =>
+        ComposeGrouping.Order(containers, c => c.ComposeProject, c => c.Name, Sort switch
         {
-            SortMode.Cpu => containers.OrderByDescending(c => c.CpuPercent),
-            SortMode.Memory => containers.OrderByDescending(c => c.MemoryUsed),
-            _ => containers
-                .OrderBy(c => c.ComposeProject is null)
-                .ThenBy(c => c.ComposeProject, StringComparer.OrdinalIgnoreCase),
-        };
-        return ordered.ThenBy(c => c.Name, StringComparer.OrdinalIgnoreCase).ToList();
-    }
+            SortMode.Cpu => c => c.CpuPercent,
+            SortMode.Memory => c => c.MemoryUsed,
+            _ => null,
+        });
 
-    // Compose projects get a header when sorting by name; other orders interleave them, so headers would lie.
-    private void AssignGroupHeaders(List<ContainerViewModel> active)
+    // The list is already grouped: the first row of each project carries the header, and every row knows if its group is collapsed.
+    private void AssignGroups(List<ContainerViewModel> list)
     {
-        var grouped = Sort == SortMode.Name && active.Any(c => c.ComposeProject is not null);
+        var grouped = list.Any(c => c.ComposeProject is not null);
+        var counts = list.GroupBy(c => c.ComposeProject ?? "").ToDictionary(g => g.Key, g => g.Count());
         string? previous = null;
-        foreach (var container in active)
+        foreach (var container in list)
         {
-            var header = grouped ? container.ComposeProject ?? UngroupedHeader : null;
+            var header = grouped ? container.ComposeProject ?? Loc.Get("Panel.Other") : null;
             container.GroupHeader = header;
             container.ShowGroupHeader = header is not null && header != previous;
+            container.GroupCount = counts[container.ComposeProject ?? ""];
+            container.IsGroupCollapsed = container.ComposeProject is { } p && _settings.CollapsedProjects.Contains(p);
             previous = header;
         }
     }
+
+    private void ToggleGroup(string project)
+    {
+        if (!_settings.CollapsedProjects.Remove(project))
+            _settings.CollapsedProjects.Add(project);
+        _store.Save(_settings);
+        Apply(_monitor.Current);
+    }
+
+    private Task RunGroupAsync(string project, ProjectAction action) => _runner.RunProjectAsync(project, action, CancellationToken.None);
 
     /// <summary>Makes <paramref name="target"/> match <paramref name="desired"/> with as few changes as possible, so rows keep their state.</summary>
     private static void Sync(ObservableCollection<ContainerViewModel> target, List<ContainerViewModel> desired)

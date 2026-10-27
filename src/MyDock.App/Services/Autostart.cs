@@ -12,26 +12,35 @@ public static class Autostart
 
     public static bool IsEnabled => File.Exists(EntryPath);
 
-    public static void Set(bool enabled)
+    /// <summary>Returns false when the entry could not be written or removed.</summary>
+    public static bool Set(bool enabled)
     {
-        if (!enabled)
+        try
         {
-            File.Delete(EntryPath);
-            return;
-        }
+            if (!enabled)
+            {
+                File.Delete(EntryPath);
+                return true;
+            }
 
-        Directory.CreateDirectory(Path.GetDirectoryName(EntryPath)!);
-        File.WriteAllText(EntryPath, $"""
+            Directory.CreateDirectory(Path.GetDirectoryName(EntryPath)!);
+            File.WriteAllText(EntryPath, $"""
             [Desktop Entry]
             Type=Application
             Name=myDock
-            Comment=Container Docker attivi e risorse utilizzate
+            Comment=Running Docker containers and their resource usage
             Exec={LaunchCommand()} --hidden
             Icon=mydock
             Terminal=false
             X-GNOME-Autostart-enabled=true
 
             """);
+            return true;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return false;
+        }
     }
 
     private static string LaunchCommand()

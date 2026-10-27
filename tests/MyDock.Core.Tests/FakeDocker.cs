@@ -27,8 +27,11 @@ internal sealed class FakeDocker : IDockerService
         }
     }
 
-    public static ContainerInfo Container(string id, ContainerState state = ContainerState.Running, string? name = null) =>
-        new(id, name ?? id, "image:latest", state, HealthState.None, state.ToString(), DateTimeOffset.UnixEpoch, null);
+    /// <param name="imageId">Unique per container unless given, so sharing an image is opt-in.</param>
+    public static ContainerInfo Container(
+        string id, ContainerState state = ContainerState.Running, string? name = null,
+        string image = "image:latest", string? imageId = null) =>
+        new(id, name ?? id, image, imageId ?? "sha256:" + id, state, HealthState.None, state.ToString(), DateTimeOffset.UnixEpoch, null);
 
     public void Set(params ContainerInfo[] containers)
     {
@@ -118,11 +121,70 @@ internal sealed class FakeDocker : IDockerService
         }
     }
 
+    /// <summary>What <see cref="StreamLogsAsync"/> yields, and the arguments of its last call.</summary>
+    public string[] LogChunks { get; set; } = [];
+
+    public (string Id, int Tail, bool Follow)? LastLogsRequest { get; private set; }
+
+    public async IAsyncEnumerable<string> StreamLogsAsync(
+        string id, int tail, bool follow, [EnumeratorCancellation] CancellationToken ct)
+    {
+        LastLogsRequest = (id, tail, follow);
+        foreach (var chunk in LogChunks)
+            yield return chunk;
+        await Task.CompletedTask;
+    }
+
     public Task StartAsync(string id, CancellationToken ct) => Record("start", id);
 
     public Task StopAsync(string id, CancellationToken ct) => Record("stop", id);
 
     public Task RestartAsync(string id, CancellationToken ct) => Record("restart", id);
+
+    public Task PauseAsync(string id, CancellationToken ct) => Record("pause", id);
+
+    public Task UnpauseAsync(string id, CancellationToken ct) => Record("unpause", id);
+
+    public Task KillAsync(string id, CancellationToken ct) => Record("kill", id);
+
+    public List<ImageInfo> Images { get; set; } = [];
+
+    public Task<IReadOnlyList<ImageInfo>> ListImagesAsync(CancellationToken ct) => Task.FromResult<IReadOnlyList<ImageInfo>>(Images);
+
+    public List<DockerVolume> Volumes { get; set; } = [];
+
+    public Task<IReadOnlyList<DockerVolume>> ListVolumesAsync(CancellationToken ct) => Task.FromResult<IReadOnlyList<DockerVolume>>(Volumes);
+
+    public Task RemoveVolumeAsync(string name, CancellationToken ct) => Record("rmvol", name);
+
+    public List<DockerNetwork> Networks { get; set; } = [];
+
+    public Task<IReadOnlyList<DockerNetwork>> ListNetworksAsync(CancellationToken ct) => Task.FromResult<IReadOnlyList<DockerNetwork>>(Networks);
+
+    public Task RemoveNetworkAsync(string id, CancellationToken ct) => Record("rmnet", id);
+
+    public List<string> VolumeUsers { get; set; } = [];
+
+    public Task<string> InspectAsync(InspectKind kind, string id, CancellationToken ct) => Record("inspect", $"{kind} {id}").ContinueWith(_ => "{}", ct);
+
+    public Task<IReadOnlyList<string>> ContainersUsingVolumeAsync(string name, CancellationToken ct) =>
+        Task.FromResult<IReadOnlyList<string>>(VolumeUsers);
+
+    public DiskUsage Usage { get; set; } = new(new(0, 0, 0), new(0, 0, 0), new(0, 0, 0), new(0, 0, 0));
+
+    public Task<DiskUsage> GetDiskUsageAsync(CancellationToken ct)
+    {
+        Record("df", "");
+        return Task.FromResult(Usage);
+    }
+
+    public Task<long> PruneImagesAsync(CancellationToken ct) => Record("prune-images", "").ContinueWith(_ => 123L, ct);
+
+    public Task<long> PruneVolumesAsync(CancellationToken ct) => Record("prune-volumes", "").ContinueWith(_ => 456L, ct);
+
+    public Task RemoveContainerAsync(string id, CancellationToken ct) => Record("rm", id);
+
+    public Task RemoveImageAsync(string reference, CancellationToken ct) => Record("rmi", reference);
 
     public void Dispose()
     {

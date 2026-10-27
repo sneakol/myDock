@@ -1,15 +1,27 @@
 using System.Runtime.CompilerServices;
+using System.Text.Encodings.Web;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Threading.Channels;
 using Docker.DotNet;
 using Docker.DotNet.Models;
 using MyDock.Core.Models;
+using MyDock.Core.Localization;
 
 namespace MyDock.Core.Docker;
 
 public sealed class DockerService : IDockerService
 {
     public const string DefaultEndpoint = "unix:///var/run/docker.sock";
+    private static string OldDaemonMessage => Loc.Get("Err.OldDaemon");
     private const string ComposeProjectLabel = "com.docker.compose.project";
+
+    private static readonly JsonSerializerOptions InspectOptions = new()
+    {
+        WriteIndented = true,
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+    };
 
     private readonly DockerClient _client;
 
@@ -54,9 +66,29 @@ public sealed class DockerService : IDockerService
         };
         return Bridge<Message, ContainerEvent>(
             (progress, token) => _client.System.MonitorEventsAsync(parameters, progress, token),
-            message => message.Actor?.ID is { } id ? new ContainerEvent(message.Action ?? "", id) : null,
+            MapEvent,
             ct);
     }
+
+    private static ContainerEvent? MapEvent(Message message)
+    {
+        if (message.Actor?.ID is not { } id)
+            return null;
+
+        string? Attribute(string key) => message.Actor.Attributes is { } a && a.TryGetValue(key, out var value) ? value : null;
+        return new ContainerEvent(message.Action ?? "", id, Attribute("name"), int.TryParse(Attribute("exitCode"), out var code) ? code : null);
+    }
+
+    public IAsyncEnumerable<string> StreamLogsAsync(string id, int tail, bool follow, CancellationToken ct) =>
+        Bridge<string, string>(
+            (progress, token) => _client.Containers.GetContainerLogsAsync(
+                id,
+                new ContainerLogsParameters { ShowStdout = true, ShowStderr = true, Tail = tail.ToString(), Follow = follow },
+                progress,
+                token),
+            // The library reports one line at a time with its newline already stripped.
+            line => line + "\n",
+            ct);
 
     public Task StartAsync(string id, CancellationToken ct) =>
         RunAsync(() => _client.Containers.StartContainerAsync(id, new ContainerStartParameters(), ct));
@@ -67,7 +99,132 @@ public sealed class DockerService : IDockerService
     public Task RestartAsync(string id, CancellationToken ct) =>
         RunAsync(() => _client.Containers.RestartContainerAsync(id, new ContainerRestartParameters(), ct));
 
+    public Task PauseAsync(string id, CancellationToken ct) =>
+        RunAsync(() => _client.Containers.PauseContainerAsync(id, ct));
+
+    public Task UnpauseAsync(string id, CancellationToken ct) =>
+        RunAsync(() => _client.Containers.UnpauseContainerAsync(id, ct));
+
+    public Task KillAsync(string id, CancellationToken ct) =>
+        RunAsync(() => _client.Containers.KillContainerAsync(id, new ContainerKillParameters(), ct));
+
+    public Task<DiskUsage> GetDiskUsageAsync(CancellationToken ct) =>
+        RunAsync(async () => ToDiskUsage(await _client.System
+            .GetDataUsageInfoAsync(new SytemDataUsageInfoParameters { Verbose = false }, ct).ConfigureAwait(false)));
+
+    public Task<IReadOnlyList<ImageInfo>> ListImagesAsync(CancellationToken ct) =>
+        RunAsync<IReadOnlyList<ImageInfo>>(async () =>
+            (await _client.Images.ListImagesAsync(new ImagesListParameters { SharedSize = true }, ct).ConfigureAwait(false))
+            .Select(ToImageInfo)
+            .ToList());
+
+    public Task<IReadOnlyList<DockerVolume>> ListVolumesAsync(CancellationToken ct) =>
+        RunAsync<IReadOnlyList<DockerVolume>>(async () =>
+        {
+            var usage = await _client.System
+                .GetDataUsageInfoAsync(new SytemDataUsageInfoParameters { Verbose = true, Type = ["volume"] }, ct).ConfigureAwait(false);
+            if (usage.VolumeUsage is null)
+                throw new DockerOperationException(OldDaemonMessage, new NotSupportedException());
+
+            return (usage.VolumeUsage.Items ?? []).Select(ToVolumeInfo).ToList();
+        });
+
+    public Task RemoveVolumeAsync(string name, CancellationToken ct) =>
+        RunAsync(() => _client.Volumes.RemoveAsync(name, false, ct));
+
+    public Task<IReadOnlyList<DockerNetwork>> ListNetworksAsync(CancellationToken ct) =>
+        RunAsync<IReadOnlyList<DockerNetwork>>(async () =>
+            (await _client.Networks.ListNetworksAsync(new NetworksListParameters(), ct).ConfigureAwait(false))
+            .Select(ToNetwork)
+            .ToList());
+
+    public Task RemoveNetworkAsync(string id, CancellationToken ct) =>
+        RunAsync(() => _client.Networks.DeleteNetworkAsync(id, ct));
+
+    public Task<string> InspectAsync(InspectKind kind, string id, CancellationToken ct) =>
+        RunAsync(async () => kind switch
+        {
+            InspectKind.Image => ToJson(await _client.Images.InspectImageAsync(id, ct).ConfigureAwait(false)),
+            InspectKind.Volume => ToJson(await _client.Volumes.InspectAsync(id, ct).ConfigureAwait(false)),
+            _ => ToJson(await _client.Networks.InspectNetworkAsync(id, ct).ConfigureAwait(false)),
+        });
+
+    public Task<IReadOnlyList<string>> ContainersUsingVolumeAsync(string name, CancellationToken ct) =>
+        RunAsync<IReadOnlyList<string>>(async () =>
+            (await _client.Containers.ListContainersAsync(new ContainersListParameters
+            {
+                All = true,
+                Filters = new Dictionary<string, IDictionary<string, bool>> { ["volume"] = new Dictionary<string, bool> { [name] = true } },
+            }, ct).ConfigureAwait(false))
+            .Select(c => c.Names?.FirstOrDefault()?.TrimStart('/') ?? ShortId(c.ID))
+            .ToList());
+
+    public Task<long> PruneImagesAsync(CancellationToken ct) =>
+        RunAsync(async () => (long)(await _client.Images.PruneImagesAsync(new ImagesPruneParameters(), ct).ConfigureAwait(false)).SpaceReclaimed);
+
+    // Anonymous volumes only, asked for explicitly: named ones may hold data and go one by one. Daemons older than API 1.42
+    // ignore the filter and prune every unused volume, which is why the unversioned URLs this client sends matter.
+    public Task<long> PruneVolumesAsync(CancellationToken ct) =>
+        RunAsync(async () => (long)(await _client.Volumes.PruneAsync(new VolumesPruneParameters
+        {
+            Filters = new Dictionary<string, IDictionary<string, bool>> { ["all"] = new Dictionary<string, bool> { ["false"] = true } },
+        }, ct).ConfigureAwait(false)).SpaceReclaimed);
+
+    public Task RemoveContainerAsync(string id, CancellationToken ct) =>
+        RunAsync(() => _client.Containers.RemoveContainerAsync(id, new ContainerRemoveParameters(), ct));
+
+    public Task RemoveImageAsync(string reference, CancellationToken ct) =>
+        RunAsync(() => _client.Images.DeleteImageAsync(reference, new ImageDeleteParameters(), ct));
+
     public void Dispose() => _client.Dispose();
+
+    private static async Task<T> RunAsync<T>(Func<Task<T>> action)
+    {
+        try
+        {
+            return await action().ConfigureAwait(false);
+        }
+        catch (DockerApiException ex)
+        {
+            throw new DockerOperationException(DockerOperationException.Describe(ex.ResponseBody, ex.Message), ex);
+        }
+    }
+
+    internal static DiskUsage ToDiskUsage(SystemDataUsageInfoResponse r)
+    {
+        // Older daemons answer with another shape, which arrives here as all nulls.
+        if (r.ImageUsage is null && r.ContainerUsage is null && r.VolumeUsage is null && r.BuildCacheUsage is null)
+            throw new DockerOperationException(OldDaemonMessage, new NotSupportedException());
+
+        return new DiskUsage(
+            Line(r.ImageUsage?.TotalCount, r.ImageUsage?.TotalSize, r.ImageUsage?.Reclaimable),
+            Line(r.ContainerUsage?.TotalCount, r.ContainerUsage?.TotalSize, r.ContainerUsage?.Reclaimable),
+            Line(r.VolumeUsage?.TotalCount, r.VolumeUsage?.TotalSize, r.VolumeUsage?.Reclaimable),
+            Line(r.BuildCacheUsage?.TotalCount, r.BuildCacheUsage?.TotalSize, r.BuildCacheUsage?.Reclaimable));
+    }
+
+    internal static string ToJson<T>(T value) => JsonSerializer.Serialize(value, InspectOptions);
+
+    internal static DockerNetwork ToNetwork(NetworkResponse n) => new(
+        n.ID ?? "",
+        n.Name ?? "",
+        n.Driver ?? "",
+        n.Scope ?? "",
+        new DateTimeOffset(DateTime.SpecifyKind(n.Created, DateTimeKind.Utc)));
+
+    internal static DockerVolume ToVolumeInfo(Volume v) =>
+        new(v.Name ?? "", v.Driver ?? "", Math.Max(0, v.UsageData?.Size ?? 0), v.UsageData?.RefCount ?? -1);
+
+    internal static ImageInfo ToImageInfo(ImagesListResponse i) => new(
+        i.ID ?? "",
+        (i.RepoTags ?? []).Where(t => t != "<none>:<none>").ToList(),
+        Math.Max(0, i.Size),
+        new DateTimeOffset(DateTime.SpecifyKind(i.Created, DateTimeKind.Utc)),
+        i.Containers);
+
+    // Docker reports -1 for sizes it could not work out.
+    private static UsageLine Line(long? count, long? size, long? reclaimable) =>
+        new(Math.Max(0, count ?? 0), Math.Max(0, size ?? 0), Math.Max(0, reclaimable ?? 0));
 
     private static async Task RunAsync(Func<Task> action)
     {
@@ -90,11 +247,48 @@ public sealed class DockerService : IDockerService
             c.ID,
             string.IsNullOrEmpty(name) ? ShortId(c.ID) : name,
             c.Image ?? "",
+            c.ImageID ?? "",
             ParseState(c.State),
             ParseHealth(c.Health?.Status),
             c.Status ?? "",
             new DateTimeOffset(DateTime.SpecifyKind(c.Created, DateTimeKind.Utc)),
-            string.IsNullOrEmpty(project) ? null : project);
+            string.IsNullOrEmpty(project) ? null : project,
+            FormatPorts(c.Ports?.Select(p => ((long)p.PrivatePort, (long)(p.PublicPort ?? 0), p.Type))),
+            FormatNetworks(c.NetworkSettings?.Networks),
+            WebPorts(c.Ports?.Select(p => ((long)(p.PublicPort ?? 0), p.Type))));
+    }
+
+    // Docker lists a published port once per host address (IPv4 and IPv6): the text is the same, so dedupe.
+    internal static string? FormatPorts(IEnumerable<(long Private, long Public, string Type)>? ports)
+    {
+        var text = (ports ?? [])
+            .OrderBy(p => p.Private).ThenBy(p => p.Public)
+            .Select(p => p.Public > 0 ? $"{p.Public}→{p.Private}/{p.Type}" : $"{p.Private}/{p.Type}")
+            .Distinct()
+            .ToList();
+        return text.Count == 0 ? null : string.Join(", ", text);
+    }
+
+    // Only TCP ports can be opened in a browser; IPv4 and IPv6 bindings of the same port collapse into one.
+    internal static IReadOnlyList<int>? WebPorts(IEnumerable<(long Public, string Type)>? ports)
+    {
+        var list = (ports ?? [])
+            .Where(p => p.Public > 0 && p.Type == "tcp")
+            .Select(p => (int)p.Public)
+            .Distinct()
+            .Order()
+            .ToList();
+        return list.Count == 0 ? null : list;
+    }
+
+    // The default networks say nothing about how the container is wired.
+    internal static string? FormatNetworks(IDictionary<string, EndpointSettings>? networks)
+    {
+        var names = (networks?.Keys ?? [])
+            .Where(n => n is not ("bridge" or "host" or "none"))
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        return names.Count == 0 ? null : string.Join(", ", names);
     }
 
     internal static StatsSample ToSample(ContainerStatsResponse s)

@@ -1,0 +1,153 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="Row.CopyId" xml:space="preserve"><value>Copia ID</value></data>
+  <data name="Row.CopyName" xml:space="preserve"><value>Copia nome</value></data>
+  <data name="Row.Cpu" xml:space="preserve"><value>CPU</value></data>
+  <data name="Row.DeleteAllQ" xml:space="preserve"><value>Elimina tutto?</value></data>
+  <data name="Row.Disk" xml:space="preserve"><value>Disco</value></data>
+  <data name="Row.KillQ" xml:space="preserve"><value>Kill?</value></data>
+  <data name="Row.Network" xml:space="preserve"><value>Rete</value></data>
+  <data name="Row.Ram" xml:space="preserve"><value>RAM</value></data>
+  <data name="Row.RestartQ" xml:space="preserve"><value>Riavviare?</value></data>
+  <data name="Row.RestartAllQ" xml:space="preserve"><value>Riavviare tutto?</value></data>
+  <data name="Row.StopQ" xml:space="preserve"><value>Fermare?</value></data>
+  <data name="Row.StopAllQ" xml:space="preserve"><value>Fermare tutto?</value></data>
+  <data name="Row.RecreateQ" xml:space="preserve"><value>Ricreare?</value></data>
+  <data name="Row.TipDeleteCompose" xml:space="preserve"><value>Elimina tutti i container del compose</value></data>
+  <data name="Row.TipToggleCompose" xml:space="preserve"><value>Espandi / comprimi compose</value></data>
+  <data name="Row.TipKill" xml:space="preserve"><value>Kill (SIGKILL, senza attesa)</value></data>
+  <data name="Row.TipLogs" xml:space="preserve"><value>Log</value></data>
+  <data name="Row.TipMore" xml:space="preserve"><value>Altre azioni</value></data>
+  <data name="Row.TipShell" xml:space="preserve"><value>Apri una shell in un terminale</value></data>
+  <data name="Row.TipPause" xml:space="preserve"><value>Pausa</value></data>
+  <data name="Row.TipRestart" xml:space="preserve"><value>Riavvia</value></data>
+  <data name="Row.TipRestartCompose" xml:space="preserve"><value>Riavvia tutto il compose</value></data>
+  <data name="Row.TipStart" xml:space="preserve"><value>Avvia</value></data>
+  <data name="Row.TipStartCompose" xml:space="preserve"><value>Avvia tutto il compose</value></data>
+  <data name="Row.TipStop" xml:space="preserve"><value>Ferma</value></data>
+  <data name="Row.TipStopCompose" xml:space="preserve"><value>Ferma tutto il compose</value></data>
+  <data name="Row.TipUnpause" xml:space="preserve"><value>Riprendi</value></data>
+  <data name="Row.TipRecreate" xml:space="preserve"><value>Ricrea tutti i container</value></data>
+  <data name="Row.OpenPort" xml:space="preserve"><value>Apri :{0}</value></data>
+  <data name="Row.PortsPrefix" xml:space="preserve"><value>Porte: {0}</value></data>
+  <data name="Row.NetworkPrefix" xml:space="preserve"><value>Rete: {0}</value></data>
+  <data name="Row.MemoryDetail" xml:space="preserve"><value>{0} di memoria · {1} processi</value></data>
+  <data name="Row.BrowserError" xml:space="preserve"><value>Impossibile aprire il browser: {0}</value></data>
+  <data name="Common.Copy" xml:space="preserve"><value>Copia</value></data>
+  <data name="Common.Cancel" xml:space="preserve"><value>Annulla</value></data>
+  <data name="Common.Close" xml:space="preserve"><value>Chiudi</value></data>
+  <data name="Common.Refresh" xml:space="preserve"><value>Aggiorna</value></data>
+  <data name="Common.Delete" xml:space="preserve"><value>Elimina</value></data>
+  <data name="Common.DeleteQ" xml:space="preserve"><value>Eliminare?</value></data>
+  <data name="Common.Sure" xml:space="preserve"><value>Sicuro?</value></data>
+  <data name="Common.Back" xml:space="preserve"><value>‹ Indietro</value></data>
+  <data name="Common.Details" xml:space="preserve"><value>Dettagli</value></data>
+  <data name="Common.Hide" xml:space="preserve"><value>Nascondi</value></data>
+  <data name="Common.Quit" xml:space="preserve"><value>Esci</value></data>
+  <data name="Log.Live" xml:space="preserve"><value>Live</value></data>
+  <data name="Log.TipPopOut" xml:space="preserve"><value>Apri in una finestra</value></data>
+  <data name="Log.WindowTitle" xml:space="preserve"><value>Log di myDock</value></data>
+  <data name="Output.Done" xml:space="preserve"><value>Fatto</value></data>
+  <data name="Output.Cancelled" xml:space="preserve"><value>Annullato</value></data>
+  <data name="Output.Failed" xml:space="preserve"><value>Fallito: {0}</value></data>
+  <data name="Output.RunTitle" xml:space="preserve"><value>Esegui {0}</value></data>
+  <data name="Output.RecreateTitle" xml:space="preserve"><value>Ricrea {0}</value></data>
+  <data name="Panel.Resources" xml:space="preserve"><value>Risorse</value></data>
+  <data name="Panel.Settings" xml:space="preserve"><value>Impostazioni</value></data>
+  <data name="Panel.FilterPlaceholder" xml:space="preserve"><value>Filtra per nome, immagine o progetto</value></data>
+  <data name="Panel.PermissionHint" xml:space="preserve"><value>Aggiungi il tuo utente al gruppo docker, poi esci e rientra:</value></data>
+  <data name="Panel.AlsoDeleteImage" xml:space="preserve"><value>Elimina anche l'immagine</value></data>
+  <data name="Panel.Connecting" xml:space="preserve"><value>Connessione a Docker…</value></data>
+  <data name="Panel.DeleteTitle" xml:space="preserve"><value>Eliminare il container?</value></data>
+  <data name="Panel.Unreachable" xml:space="preserve"><value>Docker non raggiungibile</value></data>
+  <data name="Panel.NoMatches" xml:space="preserve"><value>Nessun container corrisponde al filtro</value></data>
+  <data name="Panel.NoRunning" xml:space="preserve"><value>Nessun container in esecuzione</value></data>
+  <data name="Panel.PermissionDenied" xml:space="preserve"><value>Permesso negato sul socket Docker</value></data>
+  <data name="Panel.Retrying" xml:space="preserve"><value>. Nuovo tentativo…</value></data>
+  <data name="Panel.Sort" xml:space="preserve"><value>Ordina:</value></data>
+  <data name="Panel.StartAtLogin" xml:space="preserve"><value>Avvia al login</value></data>
+  <data name="Panel.NotResponding" xml:space="preserve"><value>Il daemon non risponde su</value></data>
+  <data name="Panel.ImageKept" xml:space="preserve"><value>L'immagine è usata da altri container e verrà mantenuta.</value></data>
+  <data name="Panel.Unhealthy" xml:space="preserve"><value>Unhealthy</value></data>
+  <data name="Panel.TipSort" xml:space="preserve"><value>Cambia ordinamento: nome, CPU, RAM</value></data>
+  <data name="Panel.TipPin" xml:space="preserve"><value>Tieni aperto quando perde il focus</value></data>
+  <data name="Panel.TipLoadFile" xml:space="preserve"><value>Carica un Dockerfile o un file docker-compose</value></data>
+  <data name="Panel.TipOnlyUnhealthy" xml:space="preserve"><value>Solo container unhealthy</value></data>
+  <data name="Panel.TipRemoveFile" xml:space="preserve"><value>Rimuovi dalla lista</value></data>
+  <data name="Panel.TipRun" xml:space="preserve"><value>Esegui</value></data>
+  <data name="Panel.ProjectLabel" xml:space="preserve"><value>Progetto: {0}</value></data>
+  <data name="Panel.Other" xml:space="preserve"><value>Altri</value></data>
+  <data name="Panel.SortName" xml:space="preserve"><value>Nome</value></data>
+  <data name="Panel.StoppedHeader" xml:space="preserve"><value>Fermi ({0})</value></data>
+  <data name="Panel.ActiveCount" xml:space="preserve"><value>{0} attivi</value></data>
+  <data name="Panel.NotAComposeFile" xml:space="preserve"><value>Non è un Dockerfile né un file docker-compose.</value></data>
+  <data name="Tray.Denied" xml:space="preserve"><value>myDock: permesso negato sul socket Docker</value></data>
+  <data name="Tray.Unreachable" xml:space="preserve"><value>myDock: Docker non raggiungibile</value></data>
+  <data name="Tray.OneActive" xml:space="preserve"><value>myDock: 1 container attivo</value></data>
+  <data name="Tray.ManyActive" xml:space="preserve"><value>myDock: {0} container attivi</value></data>
+  <data name="Settings.Unhealthy" xml:space="preserve"><value>Diventa unhealthy</value></data>
+  <data name="Settings.Crashes" xml:space="preserve"><value>Crash e kill per memoria esaurita</value></data>
+  <data name="Settings.Notifications" xml:space="preserve"><value>Notifiche sul desktop</value></data>
+  <data name="Settings.RestartLoops" xml:space="preserve"><value>Riavvii ripetuti</value></data>
+  <data name="Settings.TerminalPlaceholder" xml:space="preserve"><value>es. gnome-terminal</value></data>
+  <data name="Settings.LoadHint" xml:space="preserve"><value>Un container in esecuzione diventa giallo, poi rosso, da questi valori. 0 disattiva il livello.</value></data>
+  <data name="Settings.Bad" xml:space="preserve"><value>Critico</value></data>
+  <data name="Settings.Warning" xml:space="preserve"><value>Avviso</value></data>
+  <data name="Settings.CpuLabel" xml:space="preserve"><value>CPU % (100 = un core)</value></data>
+  <data name="Settings.LoadHeader" xml:space="preserve"><value>INDICATORE DI CARICO</value></data>
+  <data name="Settings.NotificationsHeader" xml:space="preserve"><value>NOTIFICHE</value></data>
+  <data name="Settings.RamLabel" xml:space="preserve"><value>RAM % del limite</value></data>
+  <data name="Settings.ShellHeader" xml:space="preserve"><value>SHELL</value></data>
+  <data name="Settings.TerminalHint" xml:space="preserve"><value>Terminale per il pulsante Shell (un comando nel PATH o un percorso completo). Se vuoto usa $TERMINAL o il primo trovato.</value></data>
+  <data name="Settings.LanguageHeader" xml:space="preserve"><value>LINGUA</value></data>
+  <data name="Settings.LanguageSystem" xml:space="preserve"><value>Predefinita di sistema</value></data>
+  <data name="Settings.LanguageRestart" xml:space="preserve"><value>Riavvia myDock per applicare la lingua.</value></data>
+  <data name="Resources.Images" xml:space="preserve"><value>Immagini</value></data>
+  <data name="Resources.Networks" xml:space="preserve"><value>Reti</value></data>
+  <data name="Resources.Usage" xml:space="preserve"><value>Utilizzo</value></data>
+  <data name="Resources.Volumes" xml:space="preserve"><value>Volumi</value></data>
+  <data name="Resources.VolumesHint" xml:space="preserve"><value>Volumi anonimi che nessun container usa. I volumi con nome non vengono mai toccati.</value></data>
+  <data name="Resources.CleanUp" xml:space="preserve"><value>PULIZIA</value></data>
+  <data name="Resources.DanglingHint" xml:space="preserve"><value>Immagini dangling: senza tag e inutilizzate.</value></data>
+  <data name="Resources.DeleteDataQ" xml:space="preserve"><value>Eliminare i dati?</value></data>
+  <data name="Resources.Items" xml:space="preserve"><value>Elementi</value></data>
+  <data name="Resources.Size" xml:space="preserve"><value>Dimensione</value></data>
+  <data name="Resources.Reclaimable" xml:space="preserve"><value>Recuperabile</value></data>
+  <data name="Resources.PruneImages" xml:space="preserve"><value>Pulisci immagini</value></data>
+  <data name="Resources.PruneVolumes" xml:space="preserve"><value>Pulisci volumi</value></data>
+  <data name="Resources.TipDeleteImage" xml:space="preserve"><value>Elimina l'immagine (il daemon rifiuta quelle usate da container)</value></data>
+  <data name="Resources.TipDeleteNetwork" xml:space="preserve"><value>Elimina la rete (il daemon rifiuta quelle a cui sono collegati container)</value></data>
+  <data name="Resources.TipDeleteVolume" xml:space="preserve"><value>Elimina il volume e i suoi dati (il daemon rifiuta quelli montati da container)</value></data>
+  <data name="Resources.Containers" xml:space="preserve"><value>Container</value></data>
+  <data name="Resources.BuildCache" xml:space="preserve"><value>Cache di build</value></data>
+  <data name="Resources.FreedImages" xml:space="preserve"><value>Immagini: liberati {0}</value></data>
+  <data name="Resources.FreedVolumes" xml:space="preserve"><value>Volumi: liberati {0}</value></data>
+  <data name="Resources.Untagged" xml:space="preserve"><value>&lt;senza tag&gt;</value></data>
+  <data name="Resources.MoreTags" xml:space="preserve"><value>+{0} altri</value></data>
+  <data name="Resources.UsedBy" xml:space="preserve"><value>usato da {0}</value></data>
+  <data name="Resources.Unused" xml:space="preserve"><value>inutilizzato</value></data>
+  <data name="Resources.BuiltIn" xml:space="preserve"><value>di sistema</value></data>
+  <data name="Resources.OnIt" xml:space="preserve"><value>{0} container collegati</value></data>
+  <data name="Resources.Anonymous" xml:space="preserve"><value>anonimo</value></data>
+  <data name="Resources.Named" xml:space="preserve"><value>con nome</value></data>
+  <data name="Resources.UsedByList" xml:space="preserve"><value>Usato da: {0}</value></data>
+  <data name="Resources.UsedByNone" xml:space="preserve"><value>Usato da: nessun container</value></data>
+  <data name="Alert.Crashed" xml:space="preserve"><value>{0} è terminato con codice {1}</value></data>
+  <data name="Alert.Oom" xml:space="preserve"><value>{0} è stato terminato: memoria esaurita</value></data>
+  <data name="Alert.Unhealthy" xml:space="preserve"><value>{0} è unhealthy</value></data>
+  <data name="Alert.RestartLoop" xml:space="preserve"><value>{0} continua a fallire (riavvii ripetuti)</value></data>
+  <data name="Err.NoTerminal" xml:space="preserve"><value>Nessun terminale trovato. Imposta $TERMINAL.</value></data>
+  <data name="Err.OldDaemon" xml:space="preserve"><value>Questo daemon Docker è troppo vecchio per riportare l'uso del disco (serve l'API 1.52 o successiva).</value></data>
+  <data name="Err.ImageUsed" xml:space="preserve"><value>L'immagine è usata da dei container.</value></data>
+  <data name="Err.ImageUsedOther" xml:space="preserve"><value>L'immagine è usata da altri container.</value></data>
+  <data name="Err.BuiltInNetwork" xml:space="preserve"><value>{0} è una rete di sistema e non può essere rimossa.</value></data>
+  <data name="Err.ContainerGone" xml:space="preserve"><value>Il container non è più in elenco.</value></data>
+  <data name="Err.ImageNotRemoved" xml:space="preserve"><value>Container eliminato, ma l'immagine non è stata rimossa: {0}</value></data>
+  <data name="Err.DockerNotFound" xml:space="preserve"><value>Comando docker non trovato.</value></data>
+  <data name="Err.DockerTimeout" xml:space="preserve"><value>docker non ha risposto entro {0} min.</value></data>
+  <data name="Err.DockerFailed" xml:space="preserve"><value>docker è fallito.</value></data>
+</root>

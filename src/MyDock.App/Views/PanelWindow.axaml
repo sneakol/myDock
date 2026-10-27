@@ -1,7 +1,9 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:loc="using:MyDock.App.Localization"
         xmlns:vm="using:MyDock.App.ViewModels"
         xmlns:v="using:MyDock.App.Views"
+        xmlns:c="using:MyDock.App.Controls"
         x:Class="MyDock.App.Views.PanelWindow"
         x:DataType="vm:PanelViewModel"
         Title="myDock"
@@ -105,27 +107,31 @@
           BorderBrush="{DynamicResource PanelBorder}" BorderThickness="1"
           BoxShadow="0 3 10 0 #38000000"
           TextElement.Foreground="{DynamicResource TextPrimary}">
-    <Grid RowDefinitions="Auto,Auto,*">
+    <Grid RowDefinitions="Auto,Auto,*,Auto">
 
       <!-- Header: also the handle to drag the panel around. -->
       <Border x:Name="Header" Background="Transparent" Padding="14,8,8,8"
               BorderBrush="{DynamicResource Divider}" BorderThickness="0,0,0,1">
-        <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto">
+        <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto">
           <TextBlock Classes="title" Text="myDock" VerticalAlignment="Center" />
           <TextBlock Grid.Column="1" Classes="secondary" Text="{Binding Summary}"
                      Margin="10,1,0,0" VerticalAlignment="Center" />
-          <Button Grid.Column="2" Classes="icon" Command="{Binding CycleSortCommand}"
+          <Button Grid.Column="2" Classes="icon" Click="OnLoadFile"
+                  ToolTip.Tip="{loc:L Panel.TipLoadFile}">
+            <PathIcon Data="{StaticResource IconFile}" />
+          </Button>
+          <Button Grid.Column="3" Classes="icon" Command="{Binding CycleSortCommand}"
                   IsVisible="{Binding IsConnected}"
-                  ToolTip.Tip="Cambia ordinamento: nome, CPU, RAM">
+                  ToolTip.Tip="{loc:L Panel.TipSort}">
             <TextBlock>
-              <Run Text="Ordine:" /> <Run Text="{Binding SortLabel}" />
+              <Run Text="{loc:L Panel.Sort}" /> <Run Text="{Binding SortLabel}" />
             </TextBlock>
           </Button>
-          <ToggleButton Grid.Column="3" Classes="icon" IsChecked="{Binding IsPinned}"
-                        ToolTip.Tip="Tieni aperto quando perde il focus">
+          <ToggleButton Grid.Column="4" Classes="icon" IsChecked="{Binding IsPinned}"
+                        ToolTip.Tip="{loc:L Panel.TipPin}">
             <PathIcon Data="{StaticResource IconPin}" />
           </ToggleButton>
-          <Button Grid.Column="4" Classes="icon" Command="{Binding HideCommand}" ToolTip.Tip="Nascondi">
+          <Button Grid.Column="5" Classes="icon" Command="{Binding HideCommand}" ToolTip.Tip="{loc:L Common.Hide}">
             <PathIcon Data="{StaticResource IconClose}" />
           </Button>
         </Grid>
@@ -133,15 +139,23 @@
 
       <!-- Connection state -->
       <StackPanel Grid.Row="1">
-        <TextBlock Classes="secondary" Margin="14,14" Text="Connessione a Docker…"
+        <Grid ColumnDefinitions="*,Auto" Margin="10,6,8,6" IsVisible="{Binding IsConnected}">
+          <TextBox Text="{Binding FilterText}" PlaceholderText="{loc:L Panel.FilterPlaceholder}" FontSize="12"
+                   MinHeight="28" Padding="8,4" />
+          <ToggleButton Grid.Column="1" Classes="icon" IsChecked="{Binding OnlyUnhealthy}" Margin="4,0,0,0"
+                        ToolTip.Tip="{loc:L Panel.TipOnlyUnhealthy}">
+            <TextBlock Text="{loc:L Panel.Unhealthy}" />
+          </ToggleButton>
+        </Grid>
+        <TextBlock Classes="secondary" Margin="14,14" Text="{loc:L Panel.Connecting}"
                    IsVisible="{Binding IsConnecting}" />
 
         <Border Background="{DynamicResource BannerBackground}" Padding="14,12"
                 IsVisible="{Binding IsUnavailable}">
           <StackPanel Spacing="4">
-            <TextBlock Classes="name" Text="Docker non raggiungibile" />
+            <TextBlock Classes="name" Text="{loc:L Panel.Unreachable}" />
             <TextBlock Classes="secondary" TextWrapping="Wrap">
-              <Run Text="Il demone non risponde su" /> <Run Text="{Binding Endpoint}" /><Run Text=". Nuovo tentativo in corso…" />
+              <Run Text="{loc:L Panel.NotResponding}" /> <Run Text="{Binding Endpoint}" /><Run Text="{loc:L Panel.Retrying}" />
             </TextBlock>
           </StackPanel>
         </Border>
@@ -149,13 +163,13 @@
         <Border Background="{DynamicResource BannerBackground}" Padding="14,12"
                 IsVisible="{Binding IsPermissionDenied}">
           <StackPanel Spacing="6">
-            <TextBlock Classes="name" Text="Permesso negato sul socket Docker" />
+            <TextBlock Classes="name" Text="{loc:L Panel.PermissionDenied}" />
             <TextBlock Classes="secondary" TextWrapping="Wrap"
-                       Text="Aggiungi il tuo utente al gruppo docker, poi esci e rientra nella sessione:" />
+                       Text="{loc:L Panel.PermissionHint}" />
             <Grid ColumnDefinitions="*,Auto">
               <SelectableTextBlock FontFamily="monospace" FontSize="12" VerticalAlignment="Center"
                                    Text="{Binding FixCommand}" />
-              <Button Grid.Column="1" Classes="link" Content="Copia" Click="OnCopyFixCommand" />
+              <Button Grid.Column="1" Classes="link" Content="{loc:L Common.Copy}" Click="OnCopyFixCommand" />
             </Grid>
           </StackPanel>
         </Border>
@@ -163,8 +177,53 @@
 
       <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
         <StackPanel>
+          <TextBlock Classes="error" Margin="14,8,14,0" TextWrapping="Wrap" x:Name="LoadError" IsVisible="False" />
+
+          <ItemsControl ItemsSource="{Binding Files}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate>
+                <StackPanel Margin="14,6,8,6" Spacing="2" IsEnabled="{Binding !IsBusy}">
+                  <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto">
+                    <StackPanel VerticalAlignment="Center" ToolTip.Tip="{Binding Path}">
+                      <TextBlock Classes="name" Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                      <TextBlock Classes="secondary" Text="{Binding ProjectName, Converter={x:Static v:Converters.ProjectLabel}}"
+                                 IsVisible="{Binding HasProject}" TextTrimming="CharacterEllipsis" />
+                    </StackPanel>
+                    <ComboBox Grid.Column="1" ItemsSource="{Binding EnvFiles}" SelectedItem="{Binding SelectedEnv}"
+                              IsVisible="{Binding HasEnvFiles}" MinWidth="90" Margin="6,0" FontSize="11" />
+                    <c:ConfirmButton Grid.Column="2" Classes="icon confirm" Command="{Binding RecreateCommand}"
+                                     IsVisible="{Binding IsCompose}" ToolTip.Tip="{loc:L Row.TipRecreate}">
+                      <Panel>
+                        <PathIcon Data="{StaticResource IconRestart}" IsVisible="{Binding !$parent[c:ConfirmButton].IsArmed}" />
+                        <TextBlock Text="{loc:L Row.RecreateQ}" IsVisible="{Binding $parent[c:ConfirmButton].IsArmed}" />
+                      </Panel>
+                    </c:ConfirmButton>
+                    <Button Grid.Column="3" Classes="icon" Command="{Binding RunCommand}" ToolTip.Tip="{loc:L Panel.TipRun}"
+                            IsVisible="{Binding !IsProjectRunning}">
+                      <PathIcon Data="{StaticResource IconPlay}" />
+                    </Button>
+                    <c:ConfirmButton Grid.Column="3" Classes="icon confirm" Command="{Binding StopCommand}"
+                                     IsVisible="{Binding IsProjectRunning}" ToolTip.Tip="{loc:L Row.TipStopCompose}">
+                      <Panel>
+                        <PathIcon Data="{StaticResource IconStop}" IsVisible="{Binding !$parent[c:ConfirmButton].IsArmed}" />
+                        <TextBlock Text="{loc:L Row.StopAllQ}" IsVisible="{Binding $parent[c:ConfirmButton].IsArmed}" />
+                      </Panel>
+                    </c:ConfirmButton>
+                    <Button Grid.Column="4" Classes="icon" Command="{Binding RemoveCommand}" ToolTip.Tip="{loc:L Panel.TipRemoveFile}">
+                      <PathIcon Data="{StaticResource IconClose}" />
+                    </Button>
+                  </Grid>
+                  <TextBlock Classes="error" TextWrapping="Wrap" Text="{Binding Error}"
+                             IsVisible="{Binding Error, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                </StackPanel>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+
           <TextBlock Classes="secondary" Margin="14,18" HorizontalAlignment="Center"
-                     Text="Nessun container attivo" IsVisible="{Binding IsEmpty}" />
+                     Text="{loc:L Panel.NoRunning}" IsVisible="{Binding IsEmpty}" />
+          <TextBlock Classes="secondary" Margin="14,18" HorizontalAlignment="Center"
+                     Text="{loc:L Panel.NoMatches}" IsVisible="{Binding NoMatches}" />
 
           <ItemsControl ItemsSource="{Binding Active}">
             <ItemsControl.ItemTemplate>
@@ -178,7 +237,7 @@
             <Button Classes="icon" Command="{Binding ToggleStoppedCommand}"
                     HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Margin="6,4">
               <StackPanel Orientation="Horizontal" Spacing="4">
-                <PathIcon Data="{StaticResource IconChevron}" Classes.expanded="{Binding IsStoppedExpanded}">
+                <PathIcon Data="{StaticResource IconChevron}" Classes.expanded="{Binding ShowStopped}">
                   <PathIcon.Styles>
                     <Style Selector="PathIcon.expanded">
                       <Setter Property="RenderTransform" Value="rotate(90deg)" />
@@ -188,7 +247,7 @@
                 <TextBlock Text="{Binding StoppedHeader}" VerticalAlignment="Center" />
               </StackPanel>
             </Button>
-            <ItemsControl ItemsSource="{Binding Stopped}" IsVisible="{Binding IsStoppedExpanded}">
+            <ItemsControl ItemsSource="{Binding Stopped}" IsVisible="{Binding ShowStopped}">
               <ItemsControl.ItemTemplate>
                 <DataTemplate>
                   <v:ContainerRow />
@@ -198,6 +257,281 @@
           </StackPanel>
         </StackPanel>
       </ScrollViewer>
+
+      <Border Grid.Row="3" Padding="14,4,8,4"
+              BorderBrush="{DynamicResource Divider}" BorderThickness="0,1,0,0">
+        <Grid ColumnDefinitions="*,Auto">
+          <CheckBox IsChecked="{Binding StartAtLogin}" VerticalAlignment="Center">
+            <TextBlock Classes="secondary" Text="{loc:L Panel.StartAtLogin}" />
+          </CheckBox>
+          <StackPanel Grid.Column="1" Orientation="Horizontal">
+            <Button Classes="link" Content="{loc:L Panel.Resources}" Command="{Binding ShowDiskCommand}" IsVisible="{Binding IsConnected}" />
+            <Button Classes="link" Content="{loc:L Panel.Settings}" Command="{Binding ShowSettingsCommand}" />
+            <Button Classes="link" Content="{loc:L Common.Quit}" Command="{Binding QuitCommand}" />
+          </StackPanel>
+        </Grid>
+      </Border>
+
+      <!-- Container logs: an overlay too; the pop-out button moves them to a window of their own. -->
+      <Panel Grid.RowSpan="4" IsVisible="{Binding IsShowingLogs}">
+        <v:LogView x:Name="PanelLogs" DataContext="{Binding Logs}" />
+      </Panel>
+
+      <!-- Output of a build or compose run: the overlay closes by itself when it succeeds. -->
+      <Panel Grid.RowSpan="4" IsVisible="{Binding IsShowingOutput}">
+        <v:OutputView x:Name="PanelOutput" DataContext="{Binding Output}" />
+      </Panel>
+
+      <!-- Disk usage and prunes: an overlay like the settings. -->
+      <Border Grid.RowSpan="4" Background="{DynamicResource PanelBackground}" IsVisible="{Binding IsShowingDisk}">
+        <Grid RowDefinitions="Auto,Auto,*" DataContext="{Binding Disk}" x:DataType="vm:DiskViewModel">
+          <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto,Auto,Auto" Margin="14,8,6,8">
+            <TextBlock Classes="title" Text="{loc:L Panel.Resources}" VerticalAlignment="Center" />
+            <Button Grid.Column="1" Classes="link" Content="{loc:L Resources.Usage}" Command="{Binding SelectTabCommand}"
+                    CommandParameter="{x:Static vm:DiskTab.Overview}" IsEnabled="{Binding !IsOverview}" />
+            <Button Grid.Column="2" Classes="link" Content="{loc:L Resources.Images}" Command="{Binding SelectTabCommand}"
+                    CommandParameter="{x:Static vm:DiskTab.Images}" IsEnabled="{Binding !IsImages}" />
+            <Button Grid.Column="3" Classes="link" Content="{loc:L Resources.Volumes}" Command="{Binding SelectTabCommand}"
+                    CommandParameter="{x:Static vm:DiskTab.Volumes}" IsEnabled="{Binding !IsVolumes}" />
+            <Button Grid.Column="4" Classes="link" Content="{loc:L Resources.Networks}" Command="{Binding SelectTabCommand}"
+                    CommandParameter="{x:Static vm:DiskTab.Networks}" IsEnabled="{Binding !IsNetworks}" />
+            <Button Grid.Column="5" Classes="icon" Command="{Binding RefreshCommand}" IsEnabled="{Binding !IsBusy}" ToolTip.Tip="{loc:L Common.Refresh}">
+              <PathIcon Data="{StaticResource IconRestart}" />
+            </Button>
+            <Button Grid.Column="6" Classes="icon" Click="OnCloseDisk" ToolTip.Tip="{loc:L Common.Close}">
+              <PathIcon Data="{StaticResource IconClose}" />
+            </Button>
+          </Grid>
+          <ProgressBar Grid.Row="1" Classes="busy" IsIndeterminate="True" IsVisible="{Binding IsBusy}" />
+          <StackPanel Grid.Row="2" Margin="14,0,14,12" Spacing="8" IsEnabled="{Binding !IsBusy}">
+            <StackPanel Spacing="8" IsVisible="{Binding IsOverview}">
+            <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="12">
+              <TextBlock Grid.Column="1" Classes="label" Text="{loc:L Resources.Items}" />
+              <TextBlock Grid.Column="2" Classes="label" Text="{loc:L Resources.Size}" />
+              <TextBlock Grid.Column="3" Classes="label" Text="{loc:L Resources.Reclaimable}" />
+            </Grid>
+            <ItemsControl ItemsSource="{Binding Rows}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:DiskRow">
+                  <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="12" Margin="0,2">
+                    <TextBlock Text="{Binding Name}" />
+                    <TextBlock Grid.Column="1" Classes="value" Text="{Binding Count}" />
+                    <TextBlock Grid.Column="2" Classes="value" Text="{Binding Size}" />
+                    <TextBlock Grid.Column="3" Classes="value" Text="{Binding Reclaimable}" />
+                  </Grid>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+            </StackPanel>
+
+            <TextBlock Classes="error" TextWrapping="Wrap" Text="{Binding Error}"
+                       IsVisible="{Binding Error, Converter={x:Static ObjectConverters.IsNotNull}}" />
+            <TextBlock Classes="secondary" TextWrapping="Wrap" Text="{Binding Result}"
+                       IsVisible="{Binding Result, Converter={x:Static ObjectConverters.IsNotNull}}" />
+
+            <ScrollViewer MaxHeight="420" HorizontalScrollBarVisibility="Disabled" IsVisible="{Binding IsImages}">
+              <ItemsControl ItemsSource="{Binding Images}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:ImageRowViewModel">
+                    <Grid ColumnDefinitions="*,Auto,28,Auto" ColumnSpacing="8" Margin="0,4">
+                      <StackPanel VerticalAlignment="Center">
+                        <TextBlock Classes="name" Text="{Binding Title}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Title}" />
+                        <TextBlock Classes="secondary" Text="{Binding Subtitle}" TextTrimming="CharacterEllipsis" />
+                      </StackPanel>
+                      <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                        <TextBlock Classes="value" Text="{Binding Size}" />
+                        <TextBlock Classes="value small" Text="{Binding UsedBy}" />
+                      </StackPanel>
+                      <Button Grid.Column="2" Classes="icon" Command="{Binding InspectCommand}" ToolTip.Tip="{loc:L Common.Details}">
+                        <PathIcon Data="{StaticResource IconInfo}" />
+                      </Button>
+                      <c:ConfirmButton Grid.Column="3" Classes="icon confirm" Command="{Binding DeleteCommand}"
+                                       ToolTip.Tip="{loc:L Resources.TipDeleteImage}">
+                        <Panel>
+                          <PathIcon Data="{StaticResource IconTrash}" IsVisible="{Binding !$parent[c:ConfirmButton].IsArmed}" />
+                          <TextBlock Text="{loc:L Common.DeleteQ}" IsVisible="{Binding $parent[c:ConfirmButton].IsArmed}" />
+                        </Panel>
+                      </c:ConfirmButton>
+                    </Grid>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </ScrollViewer>
+
+            <ScrollViewer MaxHeight="420" HorizontalScrollBarVisibility="Disabled" IsVisible="{Binding IsVolumes}">
+              <ItemsControl ItemsSource="{Binding Volumes}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:VolumeRowViewModel">
+                    <Grid ColumnDefinitions="*,Auto,28,Auto" ColumnSpacing="8" Margin="0,4">
+                      <StackPanel VerticalAlignment="Center">
+                        <TextBlock Classes="name" Text="{Binding Title}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Volume.Name}" />
+                        <TextBlock Classes="secondary" Text="{Binding Subtitle}" TextTrimming="CharacterEllipsis" />
+                      </StackPanel>
+                      <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                        <TextBlock Classes="value" Text="{Binding Size}" />
+                        <TextBlock Classes="value small" Text="{Binding UsedBy}" />
+                      </StackPanel>
+                      <Button Grid.Column="2" Classes="icon" Command="{Binding InspectCommand}" ToolTip.Tip="{loc:L Common.Details}">
+                        <PathIcon Data="{StaticResource IconInfo}" />
+                      </Button>
+                      <c:ConfirmButton Grid.Column="3" Classes="icon confirm" Command="{Binding DeleteCommand}"
+                                       ToolTip.Tip="{loc:L Resources.TipDeleteVolume}">
+                        <Panel>
+                          <PathIcon Data="{StaticResource IconTrash}" IsVisible="{Binding !$parent[c:ConfirmButton].IsArmed}" />
+                          <TextBlock Text="{loc:L Resources.DeleteDataQ}" IsVisible="{Binding $parent[c:ConfirmButton].IsArmed}" />
+                        </Panel>
+                      </c:ConfirmButton>
+                    </Grid>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </ScrollViewer>
+
+            <ScrollViewer MaxHeight="420" HorizontalScrollBarVisibility="Disabled" IsVisible="{Binding IsNetworks}">
+              <ItemsControl ItemsSource="{Binding Networks}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:NetworkRowViewModel">
+                    <Grid ColumnDefinitions="*,Auto,28,Auto" ColumnSpacing="8" Margin="0,4">
+                      <StackPanel VerticalAlignment="Center">
+                        <TextBlock Classes="name" Text="{Binding Title}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Title}" />
+                        <TextBlock Classes="secondary" Text="{Binding Subtitle}" TextTrimming="CharacterEllipsis" />
+                      </StackPanel>
+                      <TextBlock Grid.Column="1" Classes="value small" VerticalAlignment="Center" Text="{Binding UsedBy}" />
+                      <Button Grid.Column="2" Classes="icon" Command="{Binding InspectCommand}" ToolTip.Tip="{loc:L Common.Details}">
+                        <PathIcon Data="{StaticResource IconInfo}" />
+                      </Button>
+                      <c:ConfirmButton Grid.Column="3" Classes="icon confirm" Command="{Binding DeleteCommand}"
+                                       IsVisible="{Binding CanDelete}"
+                                       ToolTip.Tip="{loc:L Resources.TipDeleteNetwork}">
+                        <Panel>
+                          <PathIcon Data="{StaticResource IconTrash}" IsVisible="{Binding !$parent[c:ConfirmButton].IsArmed}" />
+                          <TextBlock Text="{loc:L Common.DeleteQ}" IsVisible="{Binding $parent[c:ConfirmButton].IsArmed}" />
+                        </Panel>
+                      </c:ConfirmButton>
+                    </Grid>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </ScrollViewer>
+
+            <StackPanel Spacing="6" IsVisible="{Binding HasDetail}">
+              <Grid ColumnDefinitions="Auto,*,Auto">
+                <Button Classes="link" Content="{loc:L Common.Back}" Command="{Binding CloseDetailCommand}" />
+                <TextBlock Grid.Column="1" Classes="name" Text="{Binding Detail.Title}" VerticalAlignment="Center"
+                           TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Detail.Title}" />
+                <Button Grid.Column="2" Classes="link" Content="{loc:L Common.Copy}" Click="OnCopyDetail" />
+              </Grid>
+              <TextBlock Classes="secondary" TextWrapping="Wrap" Text="{Binding Detail.UsedBy}" />
+              <ScrollViewer MaxHeight="360" HorizontalScrollBarVisibility="Disabled">
+                <SelectableTextBlock FontFamily="monospace" FontSize="11" TextWrapping="Wrap" Text="{Binding Detail.Json}" />
+              </ScrollViewer>
+            </StackPanel>
+
+            <StackPanel Spacing="8" IsVisible="{Binding IsOverview}">
+            <TextBlock Classes="group" Margin="0,6,0,0" Text="{loc:L Resources.CleanUp}" />
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock Classes="secondary" TextWrapping="Wrap" VerticalAlignment="Center"
+                         Text="{loc:L Resources.DanglingHint}" />
+              <c:ConfirmButton Grid.Column="1" Classes="link confirm" Command="{Binding PruneImagesCommand}">
+                <Panel>
+                  <TextBlock Text="{loc:L Resources.PruneImages}" IsVisible="{Binding !$parent[c:ConfirmButton].IsArmed}" />
+                  <TextBlock Text="{loc:L Common.Sure}" IsVisible="{Binding $parent[c:ConfirmButton].IsArmed}" />
+                </Panel>
+              </c:ConfirmButton>
+            </Grid>
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock Classes="secondary" TextWrapping="Wrap" VerticalAlignment="Center"
+                         Text="{loc:L Resources.VolumesHint}" />
+              <c:ConfirmButton Grid.Column="1" Classes="link confirm" Command="{Binding PruneVolumesCommand}">
+                <Panel>
+                  <TextBlock Text="{loc:L Resources.PruneVolumes}" IsVisible="{Binding !$parent[c:ConfirmButton].IsArmed}" />
+                  <TextBlock Text="{loc:L Common.Sure}" IsVisible="{Binding $parent[c:ConfirmButton].IsArmed}" />
+                </Panel>
+              </c:ConfirmButton>
+            </Grid>
+            </StackPanel>
+          </StackPanel>
+        </Grid>
+      </Border>
+
+      <!-- Settings: an overlay like the logs. Changes apply and save as they are made. -->
+      <Border Grid.RowSpan="4" Background="{DynamicResource PanelBackground}" IsVisible="{Binding IsShowingSettings}">
+        <Grid RowDefinitions="Auto,*">
+          <Grid ColumnDefinitions="*,Auto" Margin="14,8,6,8">
+            <TextBlock Classes="title" Text="{loc:L Panel.Settings}" VerticalAlignment="Center" />
+            <Button Grid.Column="1" Classes="icon" Command="{Binding CloseSettingsCommand}" ToolTip.Tip="{loc:L Common.Close}">
+              <PathIcon Data="{StaticResource IconClose}" />
+            </Button>
+          </Grid>
+          <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Disabled">
+            <StackPanel Margin="14,0,14,12" Spacing="6" DataContext="{Binding Preferences}" x:DataType="vm:SettingsViewModel">
+              <TextBlock Classes="group" Margin="0,4,0,0" Text="{loc:L Settings.NotificationsHeader}" />
+              <CheckBox IsChecked="{Binding NotificationsEnabled}" Content="{loc:L Settings.Notifications}" />
+              <StackPanel Margin="20,0,0,0" IsEnabled="{Binding NotificationsEnabled}">
+                <CheckBox IsChecked="{Binding NotifyCrashes}" Content="{loc:L Settings.Crashes}" />
+                <CheckBox IsChecked="{Binding NotifyUnhealthy}" Content="{loc:L Settings.Unhealthy}" />
+                <CheckBox IsChecked="{Binding NotifyRestartLoops}" Content="{loc:L Settings.RestartLoops}" />
+              </StackPanel>
+
+              <TextBlock Classes="group" Margin="0,10,0,0" Text="{loc:L Settings.LoadHeader}" />
+              <TextBlock Classes="secondary" TextWrapping="Wrap"
+                         Text="{loc:L Settings.LoadHint}" />
+              <Grid ColumnDefinitions="*,Auto,Auto" RowDefinitions="Auto,Auto,Auto" RowSpacing="4" ColumnSpacing="8">
+                <TextBlock Grid.Column="1" Classes="label" Text="{loc:L Settings.Warning}" HorizontalAlignment="Center" />
+                <TextBlock Grid.Column="2" Classes="label" Text="{loc:L Settings.Bad}" HorizontalAlignment="Center" />
+                <TextBlock Grid.Row="1" VerticalAlignment="Center" Text="{loc:L Settings.CpuLabel}" />
+                <NumericUpDown Grid.Row="1" Grid.Column="1" Value="{Binding CpuWarn}" Minimum="0" Maximum="10000" Increment="5" FormatString="0" Width="110" />
+                <NumericUpDown Grid.Row="1" Grid.Column="2" Value="{Binding CpuBad}" Minimum="0" Maximum="10000" Increment="5" FormatString="0" Width="110" />
+                <TextBlock Grid.Row="2" VerticalAlignment="Center" Text="{loc:L Settings.RamLabel}" />
+                <NumericUpDown Grid.Row="2" Grid.Column="1" Value="{Binding MemoryWarn}" Minimum="0" Maximum="100" Increment="5" FormatString="0" Width="110" />
+                <NumericUpDown Grid.Row="2" Grid.Column="2" Value="{Binding MemoryBad}" Minimum="0" Maximum="100" Increment="5" FormatString="0" Width="110" />
+              </Grid>
+
+              <TextBlock Classes="group" Margin="0,10,0,0" Text="{loc:L Settings.ShellHeader}" />
+              <TextBlock Classes="secondary" TextWrapping="Wrap"
+                         Text="{loc:L Settings.TerminalHint}" />
+              <TextBox Text="{Binding Terminal}" PlaceholderText="{loc:L Settings.TerminalPlaceholder}" FontSize="12" MinHeight="28" Padding="8,4" />
+
+              <TextBlock Classes="group" Margin="0,10,0,0" Text="{loc:L Settings.LanguageHeader}" />
+              <ComboBox ItemsSource="{Binding Languages}" SelectedItem="{Binding Language}" MinWidth="200">
+                <ComboBox.ItemTemplate>
+                  <DataTemplate x:DataType="vm:LanguageOption">
+                    <TextBlock Text="{Binding Label}" />
+                  </DataTemplate>
+                </ComboBox.ItemTemplate>
+              </ComboBox>
+              <TextBlock Classes="secondary" TextWrapping="Wrap" Text="{loc:L Settings.LanguageRestart}"
+                         IsVisible="{Binding RestartNeeded}" />
+            </StackPanel>
+          </ScrollViewer>
+        </Grid>
+      </Border>
+
+      <!-- Delete confirmation: an overlay rather than a window, which would take focus and hide the panel. -->
+      <Border Grid.RowSpan="4" Background="#99000000" IsVisible="{Binding IsDeleting}">
+        <Border Margin="20" Padding="14" VerticalAlignment="Center" CornerRadius="10"
+                Background="{DynamicResource PanelBackground}"
+                BorderBrush="{DynamicResource PanelBorder}" BorderThickness="1">
+          <StackPanel Spacing="8" IsEnabled="{Binding !IsDeleteBusy}">
+            <TextBlock Classes="title" Text="{loc:L Panel.DeleteTitle}" />
+            <TextBlock Text="{Binding PendingDelete.Name}" TextWrapping="Wrap" />
+            <CheckBox IsChecked="{Binding AlsoDeleteImage}" IsEnabled="{Binding !ImageShared}">
+              <TextBlock TextWrapping="Wrap">
+                <Run Text="{loc:L Panel.AlsoDeleteImage}" /> <Run Text="{Binding PendingDelete.Image}" />
+              </TextBlock>
+            </CheckBox>
+            <TextBlock Classes="secondary" TextWrapping="Wrap" IsVisible="{Binding ImageShared}"
+                       Text="{loc:L Panel.ImageKept}" />
+            <TextBlock Classes="error" TextWrapping="Wrap" Text="{Binding DeleteError}"
+                       IsVisible="{Binding DeleteError, Converter={x:Static ObjectConverters.IsNotNull}}" />
+            <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+              <Button Classes="link" Content="{loc:L Common.Cancel}" Command="{Binding CancelDeleteCommand}" />
+              <Button Classes="link" Content="{loc:L Common.Delete}" Command="{Binding ConfirmDeleteCommand}"
+                      Background="{DynamicResource Danger}" Foreground="White" />
+            </StackPanel>
+          </StackPanel>
+        </Border>
+      </Border>
     </Grid>
   </Border>
 </Window>

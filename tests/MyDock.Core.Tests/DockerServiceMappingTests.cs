@@ -94,6 +94,7 @@ public sealed class DockerServiceMappingTests
             ID = "0123456789abcdef",
             Names = ["/shop-db-1"],
             Image = "postgres:17",
+            ImageID = "sha256:abc",
             State = "running",
             Status = "Up 2 hours (healthy)",
             Health = new HealthSummary { Status = "healthy" },
@@ -103,10 +104,125 @@ public sealed class DockerServiceMappingTests
 
         Assert.Equal(
             new ContainerInfo(
-                "0123456789abcdef", "shop-db-1", "postgres:17", ContainerState.Running, HealthState.Healthy,
+                "0123456789abcdef", "shop-db-1", "postgres:17", "sha256:abc", ContainerState.Running, HealthState.Healthy,
                 "Up 2 hours (healthy)", new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero), "shop"),
             info);
         Assert.True(info.IsActive);
+    }
+
+    [Fact]
+    public void Maps_ports_and_user_defined_networks()
+    {
+        var info = DockerService.ToInfo(new ContainerListResponse
+        {
+            ID = "x",
+            State = "running",
+            Ports =
+            [
+                new() { IP = "0.0.0.0", PrivatePort = 80, PublicPort = 8080, Type = "tcp" },
+                new() { IP = "::", PrivatePort = 80, PublicPort = 8080, Type = "tcp" },
+                new() { PrivatePort = 5432, Type = "tcp" },
+            ],
+            NetworkSettings = new()
+            {
+                Networks = new Dictionary<string, EndpointSettings> { ["bridge"] = new(), ["shop_default"] = new() },
+            },
+        });
+
+        Assert.Equal("8080→80/tcp, 5432/tcp", info.Ports);
+        Assert.Equal("shop_default", info.Networks);
+        Assert.Equal([8080], info.PublicPorts);
+    }
+
+    [Fact]
+    public void Maps_disk_usage_and_treats_missing_numbers_as_zero()
+    {
+        var usage = DockerService.ToDiskUsage(new SystemDataUsageInfoResponse
+        {
+            ImageUsage = new ImageDiskUsage { TotalCount = 8, TotalSize = 4630, Reclaimable = 2893 },
+            VolumeUsage = new VolumeDiskUsage { TotalCount = 3 },
+            BuildCacheUsage = new BuildDiskUsage { TotalCount = 1, TotalSize = -1 },
+        });
+
+        Assert.Equal(new UsageLine(8, 4630, 2893), usage.Images);
+        Assert.Equal(new UsageLine(3, 0, 0), usage.Volumes);
+        Assert.Equal(new UsageLine(0, 0, 0), usage.Containers);
+        Assert.Equal(new UsageLine(1, 0, 0), usage.BuildCache);
+    }
+
+    [Fact]
+    public void Maps_an_image_and_drops_the_none_tag()
+    {
+        var image = DockerService.ToImageInfo(new ImagesListResponse
+        {
+            ID = "sha256:abc",
+            RepoTags = ["<none>:<none>", "nginx:1"],
+            Size = 1000,
+            Created = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc),
+            Containers = 2,
+        });
+
+        Assert.Equal("sha256:abc", image.Id);
+        Assert.Equal(["nginx:1"], image.Tags);
+        Assert.Equal(1000, image.Size);
+        Assert.Equal(new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero), image.Created);
+        Assert.Equal(2, image.Containers);
+        Assert.Empty(DockerService.ToImageInfo(new ImagesListResponse { ID = "x" }).Tags);
+    }
+
+    [Fact]
+    public void Maps_a_volume_with_unknown_usage_and_tells_anonymous_from_named()
+    {
+        var known = DockerService.ToVolumeInfo(new Volume { Name = "db-data", Driver = "local", UsageData = new UsageData { Size = 100, RefCount = 2 } });
+        var unknown = DockerService.ToVolumeInfo(new Volume { Name = new string('a', 64), UsageData = new UsageData { Size = -1, RefCount = -1 } });
+
+        Assert.Equal(new DockerVolume("db-data", "local", 100, 2), known);
+        Assert.False(known.IsAnonymous);
+        Assert.Equal(0, unknown.Size);
+        Assert.Equal(-1, unknown.RefCount);
+        Assert.True(unknown.IsAnonymous);
+        Assert.False(new DockerVolume(new string('g', 64), "", 0, 0).IsAnonymous);
+    }
+
+    [Fact]
+    public void Maps_a_network_and_knows_the_built_in_ones()
+    {
+        var network = DockerService.ToNetwork(new NetworkResponse
+        {
+            ID = "abc",
+            Name = "shop_default",
+            Driver = "bridge",
+            Scope = "local",
+            Created = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc),
+        });
+
+        Assert.Equal(new DockerNetwork("abc", "shop_default", "bridge", "local", new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero)), network);
+        Assert.False(network.IsBuiltIn);
+        Assert.All(new[] { "bridge", "host", "none" }, name => Assert.True(network with { Name = name } is { IsBuiltIn: true }));
+    }
+
+    [Fact]
+    public void Inspect_json_is_indented_skips_nulls_and_keeps_plus_signs_readable()
+    {
+        var json = DockerService.ToJson(new Volume { Name = "db", CreatedAt = "2026-01-01T00:00:00+01:00", Driver = "local" });
+
+        Assert.Contains("\n  \"Name\": \"db\"", json);
+        Assert.Contains("+01:00", json);
+        Assert.DoesNotContain("Labels", json);
+    }
+
+    [Fact]
+    public void Disk_usage_in_an_unknown_shape_is_an_error() =>
+        Assert.Throws<DockerOperationException>(() => DockerService.ToDiskUsage(new SystemDataUsageInfoResponse()));
+
+    [Fact]
+    public void Web_ports_keep_only_published_tcp_ports_once_in_order()
+    {
+        var ports = DockerService.WebPorts([(9000, "tcp"), (8080, "tcp"), (8080, "tcp"), (53, "udp"), (0, "tcp")]);
+
+        Assert.Equal([8080, 9000], ports);
+        Assert.Null(DockerService.WebPorts([(0, "tcp"), (53, "udp")]));
+        Assert.Null(DockerService.WebPorts(null));
     }
 
     [Fact]
@@ -118,6 +234,8 @@ public sealed class DockerServiceMappingTests
         Assert.Equal(ContainerState.Exited, info.State);
         Assert.Equal(HealthState.None, info.Health);
         Assert.Null(info.ComposeProject);
+        Assert.Null(info.Ports);
+        Assert.Null(info.Networks);
         Assert.False(info.IsActive);
     }
 

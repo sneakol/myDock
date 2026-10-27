@@ -51,6 +51,27 @@ public sealed class ContainerMonitorTests : IAsyncDisposable
     }
 
     [Fact]
+    public async Task Raises_an_alert_when_a_container_turns_unhealthy()
+    {
+        var alerts = new List<ContainerAlert>();
+        _monitor.Alerted += alert =>
+        {
+            lock (alerts)
+                alerts.Add(alert);
+        };
+
+        _monitor.Start();
+        await Connected();
+        _docker.Raise("health_status: unhealthy", "a");
+
+        await Eventually(() =>
+        {
+            lock (alerts)
+                return alerts.Any(a => a.Kind == AlertKind.Unhealthy);
+        });
+    }
+
+    [Fact]
     public async Task Relevant_event_refreshes_the_list()
     {
         _monitor.Start();
@@ -101,6 +122,40 @@ public sealed class ContainerMonitorTests : IAsyncDisposable
         _monitor.StatsEnabled = true;
 
         await Eventually(() => _docker.OpenStatsStreams is ["a", "c"]);
+    }
+
+    [Fact]
+    public async Task Stats_scope_limits_the_streams_and_can_be_lifted()
+    {
+        _docker.Set(FakeDocker.Container("a"), FakeDocker.Container("b"), FakeDocker.Container("c"));
+        _monitor.StatsEnabled = true;
+        _monitor.Start();
+        await Eventually(() => _docker.OpenStatsStreams is ["a", "b", "c"]);
+
+        _monitor.SetStatsScope(new HashSet<string> { "a", "c" });
+        await Eventually(() => _docker.OpenStatsStreams is ["a", "c"]);
+
+        _monitor.SetStatsScope(new HashSet<string> { "b" });
+        await Eventually(() => _docker.OpenStatsStreams is ["b"]);
+
+        _monitor.SetStatsScope(null);
+        await Eventually(() => _docker.OpenStatsStreams is ["a", "b", "c"]);
+    }
+
+    [Fact]
+    public async Task A_container_left_out_of_the_scope_keeps_its_last_stats()
+    {
+        _docker.Set(FakeDocker.Container("a"));
+        _monitor.StatsEnabled = true;
+        _monitor.Start();
+        await Eventually(() => _docker.OpenStatsStreams is ["a"]);
+        _docker.PushStats("a", new StatsSample { Pids = 1 });
+        await Eventually(() => _monitor.Current.Containers[0].Stats is not null);
+
+        _monitor.SetStatsScope(new HashSet<string>());
+        await Eventually(() => _docker.OpenStatsStreams is []);
+
+        Assert.NotNull(_monitor.Current.Containers[0].Stats);
     }
 
     [Fact]
@@ -236,13 +291,162 @@ public sealed class ContainerMonitorTests : IAsyncDisposable
     }
 
     [Fact]
+    public async Task Disk_usage_and_prunes_are_forwarded_to_docker()
+    {
+        _docker.Usage = new(new(8, 100, 40), new(2, 1, 1), new(3, 50, 20), new(20, 500, 400));
+
+        Assert.Equal(new UsageLine(8, 100, 40), (await _monitor.GetDiskUsageAsync()).Images);
+        Assert.Equal(123, await _monitor.PruneImagesAsync());
+        Assert.Equal(456, await _monitor.PruneVolumesAsync());
+        Assert.Equal(["df ", "prune-images ", "prune-volumes "], _docker.Actions);
+    }
+
+    [Fact]
+    public async Task Deleting_an_image_removes_each_tag_or_the_id_when_it_has_none()
+    {
+        await _monitor.DeleteImageAsync(new ImageInfo("sha256:aaa", ["nginx:1", "nginx:latest"], 10, DateTimeOffset.UnixEpoch, 0));
+        await _monitor.DeleteImageAsync(new ImageInfo("sha256:bbb", [], 10, DateTimeOffset.UnixEpoch, 0));
+
+        Assert.Equal(["rmi nginx:1", "rmi nginx:latest", "rmi sha256:bbb"], _docker.Actions);
+    }
+
+    [Fact]
+    public async Task An_image_used_by_a_container_is_not_touched()
+    {
+        _docker.Set(FakeDocker.Container("a", imageId: "sha256:used"));
+        _monitor.Start();
+        await Connected();
+
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => _monitor.DeleteImageAsync(new ImageInfo("sha256:used", ["x:1", "x:2"], 1, DateTimeOffset.UnixEpoch, -1)));
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => _monitor.DeleteImageAsync(new ImageInfo("sha256:other", ["y:1"], 1, DateTimeOffset.UnixEpoch, 2)));
+
+        Assert.Empty(_docker.Actions);
+    }
+
+    [Fact]
+    public async Task Volumes_are_listed_and_deleted_by_name()
+    {
+        _docker.Volumes = [new DockerVolume("db-data", "local", 10, 0)];
+
+        Assert.Equal("db-data", (await _monitor.ListVolumesAsync()).Single().Name);
+        await _monitor.DeleteVolumeAsync(_docker.Volumes[0]);
+
+        Assert.Equal(["rmvol db-data"], _docker.Actions);
+    }
+
+    [Fact]
+    public async Task Networks_are_deleted_by_id_but_built_in_ones_never()
+    {
+        await _monitor.DeleteNetworkAsync(new DockerNetwork("n1", "shop_default", "bridge", "local", DateTimeOffset.UnixEpoch));
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => _monitor.DeleteNetworkAsync(new DockerNetwork("n2", "bridge", "bridge", "local", DateTimeOffset.UnixEpoch)));
+
+        Assert.Equal(["rmnet n1"], _docker.Actions);
+    }
+
+    [Fact]
+    public async Task Counts_the_containers_on_a_user_defined_network()
+    {
+        _docker.Set(
+            FakeDocker.Container("a") with { Networks = "shop_default, other" },
+            FakeDocker.Container("b") with { Networks = "other" },
+            FakeDocker.Container("c"));
+        _monitor.Start();
+        await Connected();
+
+        Assert.Equal(["a"], _monitor.ContainersOnNetwork("shop_default"));
+        Assert.Equal(["a", "b"], _monitor.ContainersOnNetwork("other"));
+        Assert.Empty(_monitor.ContainersOnNetwork("shop"));
+    }
+
+    [Fact]
+    public async Task Inspecting_returns_the_json_and_the_containers_that_use_the_thing()
+    {
+        _docker.Set(
+            FakeDocker.Container("a", imageId: "sha256:img") with { Networks = "net" },
+            FakeDocker.Container("b"));
+        _docker.VolumeUsers = ["db"];
+        _monitor.Start();
+        await Connected();
+
+        var image = await _monitor.InspectImageAsync(new ImageInfo("sha256:img", ["x:1"], 1, DateTimeOffset.UnixEpoch, 1));
+        var volume = await _monitor.InspectVolumeAsync(new DockerVolume("vol", "local", 1, 1));
+        var network = await _monitor.InspectNetworkAsync(new DockerNetwork("nid", "net", "bridge", "local", DateTimeOffset.UnixEpoch));
+
+        Assert.Equal(["a"], image.UsedBy);
+        Assert.Equal(["db"], volume.UsedBy);
+        Assert.Equal(["a"], network.UsedBy);
+        Assert.Equal(["inspect Image sha256:img", "inspect Volume vol", "inspect Network nid"], _docker.Actions);
+    }
+
+    [Fact]
     public async Task Actions_are_forwarded_to_docker()
     {
         await _monitor.StartContainerAsync("a");
         await _monitor.StopContainerAsync("b");
         await _monitor.RestartContainerAsync("c");
+        await _monitor.PauseContainerAsync("d");
+        await _monitor.UnpauseContainerAsync("d");
+        await _monitor.KillContainerAsync("e");
 
-        Assert.Equal(["start a", "stop b", "restart c"], _docker.Actions);
+        Assert.Equal(["start a", "stop b", "restart c", "pause d", "unpause d", "kill e"], _docker.Actions);
+    }
+
+    [Fact]
+    public async Task Logs_are_streamed_from_docker()
+    {
+        _docker.LogChunks = ["one\n", "two\n"];
+
+        var chunks = await _monitor.StreamLogsAsync("a", 200, follow: true, CancellationToken.None).ToListAsync();
+
+        Assert.Equal(["one\n", "two\n"], chunks);
+        Assert.Equal(("a", 200, true), _docker.LastLogsRequest);
+    }
+
+    [Fact]
+    public async Task Deleting_a_container_keeps_its_image_unless_asked()
+    {
+        _docker.Set(FakeDocker.Container("a", ContainerState.Exited));
+        _monitor.Start();
+        await Connected();
+
+        await _monitor.DeleteContainerAsync("a", alsoImage: false);
+        Assert.Equal(["rm a"], _docker.Actions);
+
+        await _monitor.DeleteContainerAsync("a", alsoImage: true);
+        Assert.Equal(["rm a", "rm a", "rmi image:latest"], _docker.Actions);
+    }
+
+    [Fact]
+    public async Task A_shared_image_is_never_deleted()
+    {
+        _docker.Set(
+            FakeDocker.Container("a", ContainerState.Exited, imageId: "sha256:shared"),
+            FakeDocker.Container("b", ContainerState.Exited, imageId: "sha256:shared"),
+            FakeDocker.Container("c", imageId: "sha256:other"));
+        _monitor.Start();
+        await Connected();
+
+        Assert.True(_monitor.IsImageShared("sha256:shared", "a"));
+        Assert.False(_monitor.IsImageShared("sha256:other", "c"));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => _monitor.DeleteContainerAsync("a", alsoImage: true));
+        Assert.Empty(_docker.Actions);
+    }
+
+    [Theory]
+    [InlineData("sha256:abcdef", "sha256:abcdef0123")]
+    [InlineData("abcdef", "sha256:abcdef0123")]
+    public async Task An_image_shown_as_a_bare_id_is_deleted_by_id(string image, string imageId)
+    {
+        _docker.Set(FakeDocker.Container("a", ContainerState.Exited, image: image, imageId: imageId));
+        _monitor.Start();
+        await Connected();
+
+        await _monitor.DeleteContainerAsync("a", alsoImage: true);
+
+        Assert.Equal(["rm a", $"rmi {imageId}"], _docker.Actions);
     }
 
     [Theory]

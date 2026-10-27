@@ -1,8 +1,12 @@
+using System.Diagnostics;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using MyDock.App.Services;
+using MyDock.Core.Docker;
 using MyDock.Core.Formatting;
 using MyDock.Core.Models;
 using MyDock.Core.Monitoring;
+using MyDock.Core.Localization;
 
 namespace MyDock.App.ViewModels;
 
@@ -20,13 +24,29 @@ public sealed partial class ContainerViewModel : ObservableObject
     private const string NoValue = "–";
 
     private readonly ContainerMonitor _monitor;
+    private readonly Settings _settings;
+    private readonly Action<ContainerViewModel> _requestDelete;
+    private readonly Action<ContainerViewModel> _showLogs;
+    private readonly Action<string> _toggleGroup;
+    private readonly Func<string, ProjectAction, Task> _runGroup;
     private readonly Queue<double> _cpuSamples = new(HistoryLength);
     private ContainerStats? _lastStats;
 
     [ObservableProperty] private string _name = "";
     [ObservableProperty] private string _subtitle = "";
     [ObservableProperty] private string _details = "";
+    [ObservableProperty] private string? _portsText;
+    [ObservableProperty] private string? _networksText;
     [ObservableProperty] private bool _isActive;
+    [ObservableProperty] private bool _isPaused;
+
+    // The daemon refuses to pause a container that is restarting.
+    [ObservableProperty] private bool _canPause;
+    [ObservableProperty] private bool _isMoreOpen;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasPublicPorts))]
+    private IReadOnlyList<int> _publicPorts = [];
     [ObservableProperty] private Indicator _indicator;
     [ObservableProperty] private string _cpuText = NoValue;
     [ObservableProperty] private IReadOnlyList<double> _cpuHistory = [];
@@ -37,18 +57,52 @@ public sealed partial class ContainerViewModel : ObservableObject
     [ObservableProperty] private bool _isBusy;
     [ObservableProperty] private string? _error;
     [ObservableProperty] private string? _groupHeader;
-    [ObservableProperty] private bool _showGroupHeader;
+    [ObservableProperty] private bool _isGroupCollapsed;
+    [ObservableProperty] private int _groupCount;
+    [ObservableProperty] private bool _isGroupBusy;
+    [ObservableProperty] private string? _groupError;
 
-    public ContainerViewModel(ContainerMonitor monitor, ContainerSnapshot snapshot)
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsComposeHeader), nameof(IsPlainHeader))]
+    private bool _showGroupHeader;
+
+    public ContainerViewModel(
+        ContainerMonitor monitor,
+        ContainerSnapshot snapshot,
+        Settings settings,
+        Action<ContainerViewModel> requestDelete,
+        Action<string> toggleGroup,
+        Func<string, ProjectAction, Task> runGroup,
+        Action<ContainerViewModel> showLogs)
     {
         _monitor = monitor;
+        _settings = settings;
+        _requestDelete = requestDelete;
+        _showLogs = showLogs;
+        _toggleGroup = toggleGroup;
+        _runGroup = runGroup;
         Id = snapshot.Info.Id;
         Update(snapshot);
     }
 
     public string Id { get; }
 
+    /// <summary>The 12-character id that <c>docker ps</c> shows.</summary>
+    public string ShortId => Id[..Math.Min(12, Id.Length)];
+
+    public bool HasPublicPorts => PublicPorts.Count > 0;
+
+    public string Image { get; private set; } = "";
+
+    public string ImageId { get; private set; } = "";
+
     public string? ComposeProject { get; private set; }
+
+    public bool IsUnhealthy { get; private set; }
+
+    public bool IsComposeHeader => ShowGroupHeader && ComposeProject is not null;
+
+    public bool IsPlainHeader => ShowGroupHeader && ComposeProject is null;
 
     public double CpuPercent => _lastStats?.CpuPercent ?? 0;
 
@@ -59,10 +113,21 @@ public sealed partial class ContainerViewModel : ObservableObject
         var (info, stats) = snapshot;
 
         Name = info.Name;
+        Image = info.Image;
+        ImageId = info.ImageId;
         Subtitle = $"{info.Image} · {info.Status}";
         IsActive = info.IsActive;
-        Indicator = IndicatorFor(info);
+        IsPaused = info.State == ContainerState.Paused;
+        CanPause = info.State == ContainerState.Running;
+        Indicator = IndicatorFor(info, stats, _settings);
         ComposeProject = info.ComposeProject;
+        IsUnhealthy = info.Health == HealthState.Unhealthy;
+        // Rebuilding the list on every refresh would redraw the port buttons each second.
+        var ports = info.PublicPorts ?? [];
+        if (!PublicPorts.SequenceEqual(ports))
+            PublicPorts = ports;
+        PortsText = info.Ports is null ? null : Loc.Get("Row.PortsPrefix", info.Ports);
+        NetworksText = info.Networks is null ? null : Loc.Get("Row.NetworkPrefix", info.Networks);
 
         // The same stats object is republished whenever another container changes: only a new one is a new sample.
         if (ReferenceEquals(stats, _lastStats))
@@ -88,7 +153,7 @@ public sealed partial class ContainerViewModel : ObservableObject
         MemoryPercent = stats.MemoryPercent;
         NetworkText = $"RX {Format.Rate(stats.NetRxRate)}  TX {Format.Rate(stats.NetTxRate)}";
         DiskText = $"R {Format.Rate(stats.BlockReadRate)}  W {Format.Rate(stats.BlockWriteRate)}";
-        Details = $"{info.Image}\n{Format.Percent(stats.MemoryPercent)} della memoria · {stats.Pids} processi";
+        Details = $"{info.Image}\n{Loc.Get("Row.MemoryDetail", Format.Percent(stats.MemoryPercent), stats.Pids)}";
     }
 
     /// <summary>Drops the CPU history, e.g. after the panel was hidden and sampling paused.</summary>
@@ -106,6 +171,70 @@ public sealed partial class ContainerViewModel : ObservableObject
 
     [RelayCommand]
     private Task RestartAsync() => RunAsync(_monitor.RestartContainerAsync);
+
+    [RelayCommand]
+    private Task PauseAsync() => RunAsync(_monitor.PauseContainerAsync);
+
+    [RelayCommand]
+    private Task UnpauseAsync() => RunAsync(_monitor.UnpauseContainerAsync);
+
+    [RelayCommand]
+    private Task KillAsync() => RunAsync(_monitor.KillContainerAsync);
+
+    public void OpenPort(int port)
+    {
+        Error = null;
+        try
+        {
+            using var _ = Process.Start(new ProcessStartInfo("xdg-open", $"http://localhost:{port}"));
+        }
+        catch (Exception ex)
+        {
+            Error = Loc.Get("Row.BrowserError", ex.Message);
+        }
+    }
+
+    [RelayCommand]
+    private void Delete() => _requestDelete(this);
+
+    [RelayCommand]
+    private void ShowLogs() => _showLogs(this);
+
+    [RelayCommand]
+    private void OpenShell()
+    {
+        Error = null;
+        try
+        {
+            ContainerShell.Open(Id, _settings.Terminal);
+        }
+        catch (Exception ex)
+        {
+            Error = ex.Message;
+        }
+    }
+
+    [RelayCommand]
+    private void ToggleGroup() => _toggleGroup(ComposeProject!);
+
+    [RelayCommand]
+    private async Task GroupActionAsync(ProjectAction action)
+    {
+        GroupError = null;
+        IsGroupBusy = true;
+        try
+        {
+            await _runGroup(ComposeProject!, action);
+        }
+        catch (Exception ex)
+        {
+            GroupError = ex.Message;
+        }
+        finally
+        {
+            IsGroupBusy = false;
+        }
+    }
 
     private async Task RunAsync(Func<string, CancellationToken, Task> action)
     {
@@ -125,13 +254,28 @@ public sealed partial class ContainerViewModel : ObservableObject
         }
     }
 
-    private static Indicator IndicatorFor(ContainerInfo info) => info.State switch
+    private static Indicator IndicatorFor(ContainerInfo info, ContainerStats? stats, Settings settings)
     {
-        ContainerState.Running when info.Health == HealthState.Unhealthy => Indicator.Bad,
-        ContainerState.Running when info.Health == HealthState.Starting => Indicator.Warn,
-        ContainerState.Running => Indicator.Ok,
-        ContainerState.Paused or ContainerState.Restarting => Indicator.Warn,
-        ContainerState.Dead => Indicator.Bad,
-        _ => Indicator.Off,
-    };
+        var state = info.State switch
+        {
+            ContainerState.Running when info.Health == HealthState.Unhealthy => Indicator.Bad,
+            ContainerState.Running when info.Health == HealthState.Starting => Indicator.Warn,
+            ContainerState.Running => Indicator.Ok,
+            ContainerState.Paused or ContainerState.Restarting => Indicator.Warn,
+            ContainerState.Dead => Indicator.Bad,
+            _ => Indicator.Off,
+        };
+        if (state != Indicator.Ok || stats is null)
+            return state;
+
+        // Load only turns a healthy running container yellow or red.
+        var cpu = Thresholds.Classify(stats.CpuPercent, settings.CpuWarn, settings.CpuBad);
+        var memory = Thresholds.Classify(stats.MemoryPercent, settings.MemoryWarn, settings.MemoryBad);
+        return (Load)Math.Max((int)cpu, (int)memory) switch
+        {
+            Load.Critical => Indicator.Bad,
+            Load.High => Indicator.Warn,
+            _ => Indicator.Ok,
+        };
+    }
 }

@@ -1,61 +1,94 @@
 # myDock
 
-Un piccolo "widget" per Ubuntu che mostra i container Docker attivi e le risorse che usano:
-un'icona nella barra in alto con il numero di container, e un pannello compatto con CPU, RAM,
-rete e disco di ciascuno, più i comandi per avviarli, fermarli e riavviarli.
+A small "widget" for Ubuntu that shows the running Docker containers and the resources they use:
+a tray icon with the container count, and a compact panel with the CPU, RAM, network and disk of
+each one, plus the commands to start, stop and restart them.
 
-Scritto in .NET 10 con [Avalonia](https://avaloniaui.net/).
+Written in .NET 10 with [Avalonia](https://avaloniaui.net/).
 
-## Requisiti
+## Requirements
 
-- Ubuntu con GNOME (provato su 26.04, sessione Wayland) e l'estensione AppIndicator, attiva di serie.
-- Docker Engine in esecuzione.
-- L'utente deve poter leggere `/var/run/docker.sock`:
+- Ubuntu with GNOME (tested on 26.04, Wayland session) and the AppIndicator extension, enabled by default.
+- A running Docker Engine.
+- The user must be able to read `/var/run/docker.sock`:
 
   ```bash
-  sudo usermod -aG docker $USER   # poi esci e rientra nella sessione
+  sudo usermod -aG docker $USER   # then log out and back in
   ```
 
-  Chi fa parte del gruppo `docker` ha di fatto i privilegi di root sulla macchina.
-- Per compilare: l'SDK .NET 10 (`sudo apt install dotnet-sdk-10.0`). L'app installata non ne ha bisogno.
+  Members of the `docker` group effectively have root privileges on the machine.
+- To build: the .NET 10 SDK (`sudo apt install dotnet-sdk-10.0`). The installed app does not need it.
 
-## Installazione
+## Installation
 
 ```bash
-packaging/install.sh             # compila e installa per l'utente corrente
-packaging/install.sh --uninstall # rimuove tutto, tranne le impostazioni
+packaging/install.sh             # build and install for the current user
+packaging/install.sh --uninstall # remove everything, except the settings
 ```
 
-L'app finisce in `~/.local/share/mydock`, con il comando `mydock` in `~/.local/bin` e la voce nel menu
-delle applicazioni. Per farla partire all'accesso: menu dell'icona → *Avvia all'accesso*.
+The app ends up in `~/.local/share/mydock`, with the `mydock` command in `~/.local/bin` and an entry in the
+applications menu. To start it at login: tray icon menu → *Start at login*.
 
-## Uso
+### Debian / Ubuntu package
 
-| Comando | Effetto |
+```bash
+packaging/build-deb.sh                      # builds dist/mydock_<version>_amd64.deb and _arm64.deb
+sudo apt install ./dist/mydock_1.0.0_<arch>.deb   # amd64 or arm64, as per `dpkg --print-architecture`
+sudo apt remove mydock
+```
+
+The package installs the app in `/opt/mydock`, the `mydock` command in `/usr/bin` and the menu entry and icon system-wide,
+and pulls in the libraries it needs. It recommends Docker's CLI (compose and the shell button), `libnotify-bin`
+(notifications) and the AppIndicator extension. Settings stay in `~/.config/mydock`. If you also used `install.sh`,
+remove that copy first (`packaging/install.sh --uninstall`), or it shadows the packaged command. Quit a running
+instance (`mydock --quit`) before upgrading or removing the package; if you enabled *Start at login*, delete
+`~/.config/autostart/mydock.desktop` after removing it.
+
+The version is `<Version>` in `Directory.Build.props`. Both architectures build from any machine
+with `dotnet` and `dpkg-deb` (`ARCHES=amd64 packaging/build-deb.sh` builds only one).
+
+### Releases
+
+Pushing a tag that matches the version publishes a GitHub release with both packages and their checksums:
+
+```bash
+git tag v1.0.0 && git push origin v1.0.0
+```
+
+The workflow is `.github/workflows/release.yml`; running it by hand from the Actions tab only builds and tests.
+
+## Usage
+
+| Command | Effect |
 |---|---|
-| `mydock` | avvia e mostra il pannello; se è già in esecuzione, lo mostra |
-| `mydock --hidden` | avvia solo l'icona nella barra |
-| `mydock --toggle` | apre o chiude il pannello dell'istanza in esecuzione |
-| `mydock --quit` | chiude l'istanza in esecuzione |
-| `mydock --dump` | stampa container e risorse sul terminale ed esce |
+| `mydock` | start and show the panel; if already running, show it |
+| `mydock --hidden` | start with the tray icon only |
+| `mydock --toggle` | open or close the panel of the running instance |
+| `mydock --quit` | quit the running instance |
+| `mydock --dump` | print the containers and resources to the terminal and exit |
 
-Su GNOME il click sull'icona apre il suo menu, la cui prima voce mostra o nasconde il pannello.
-Per averlo a portata di tasto, associa `mydock --toggle` a una scorciatoia in
-*Impostazioni → Tastiera → Scorciatoie personalizzate*.
+On GNOME a click on the icon opens its menu, whose first entry shows or hides the panel.
+To have it a keystroke away, bind `mydock --toggle` to a shortcut in
+*Settings → Keyboard → Custom Shortcuts*.
 
-Nel pannello:
+In the panel:
 
-- il pannello si chiude da solo quando perde il focus; la puntina lo tiene aperto. Si sposta trascinando l'intestazione;
-- *Ordine* alterna nome, CPU e RAM. Ordinando per nome, i container di uno stesso progetto Compose sono raggruppati;
-- fermare e riavviare chiedono un secondo click di conferma;
-- *Fermi* elenca i container non in esecuzione, che si possono riavviare da lì.
+- the panel closes by itself when it loses focus; the pin keeps it open. Drag the header to move it;
+- *Sort* cycles through name, CPU and RAM. When sorting by name, containers of the same Compose project are grouped;
+- stopping and restarting ask for a second click to confirm;
+- *Stopped* lists the containers that are not running, which can be started again from there, or deleted with the trash button.
+  Deleting asks whether to remove the image too (only that tag is dropped); the option is disabled while another container uses the image;
+- the file button in the header loads a `Dockerfile` or `docker-compose.yml` (also `compose.yaml`, `Dockerfile.dev`, ...) into the *Files* section.
+  The `.env*` files next to it (`.env`, `.env.dev`, ...) are listed in a dropdown beside the play button, which runs the file with the chosen one:
+  `docker compose -f <file> --env-file <env> up -d` for compose, `docker build` then `docker run -d --env-file <env>` for a Dockerfile
+  (image `mydock/<folder>`). The loaded files and the chosen `.env` are remembered. This needs the `docker` CLI in the `PATH`.
 
-La CPU segue la convenzione di `docker stats`: 100% è un core intero. La RAM esclude la cache di pagina recuperabile.
-Le statistiche vengono campionate solo mentre il pannello è aperto.
+CPU follows the `docker stats` convention: 100% is one full core. RAM excludes reclaimable page cache.
+Statistics are only sampled while the panel is open.
 
-Per un demone diverso da quello locale vale la variabile `DOCKER_HOST`. Le impostazioni stanno in `~/.config/mydock/settings.json`.
+For a daemon other than the local one, use the `DOCKER_HOST` variable. Settings live in `~/.config/mydock/settings.json`.
 
-## Sviluppo
+## Development
 
 ```bash
 dotnet build
@@ -63,17 +96,21 @@ dotnet test
 dotnet run --project src/MyDock.App
 ```
 
-Avalonia raccoglie dati d'uso anonimi durante la compilazione (non nell'app installata);
-per disattivarli imposta `AVALONIA_TELEMETRY_OPTOUT=1` nell'ambiente.
+Avalonia collects anonymous usage data at build time (not in the installed app);
+to opt out, set `AVALONIA_TELEMETRY_OPTOUT=1` in the environment.
 
-| Progetto | Contenuto |
+| Project | Contents |
 |---|---|
-| `src/MyDock.Core` | accesso a Docker (`IDockerService`), calcolo delle statistiche, `ContainerMonitor`. Nessuna dipendenza dalla UI |
-| `src/MyDock.App` | icona tray, pannello, view model |
-| `tests/MyDock.Core.Tests` | test del Core, con un finto servizio Docker |
+| `src/MyDock.Core` | Docker access (`IDockerService`), Dockerfile/compose runner (`IComposeRunner`), statistics calculation, `ContainerMonitor`. No UI dependencies |
+| `src/MyDock.App` | tray icon, panel, view models |
+| `tests/MyDock.Core.Tests` | Core tests, with a fake Docker service |
 
-`ContainerMonitor` tiene aggiornato l'elenco ascoltando gli eventi di Docker, senza interrogarlo a intervalli,
-e si ricollega da solo se il demone sparisce.
+`ContainerMonitor` keeps the list up to date by listening to Docker events, without polling,
+and reconnects by itself if the daemon goes away.
 
-Il pannello si posiziona in alto a destra perché Avalonia su Linux usa X11 (qui tramite XWayland):
-un client Wayland nativo non può scegliere dove comparire.
+The panel is placed at the top right because Avalonia on Linux uses X11 (here through XWayland):
+a native Wayland client cannot choose where to appear.
+
+## License
+
+[MIT](LICENSE): use, copy, modify and distribute it freely, keeping the copyright notice.

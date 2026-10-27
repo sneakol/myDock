@@ -1,3 +1,4 @@
+using System.Globalization;
 using Avalonia;
 using Avalonia.Controls;
 using MyDock.App.Services;
@@ -7,20 +8,23 @@ namespace MyDock.App;
 internal static class Program
 {
     private const string Usage = """
-        myDock: container Docker attivi e risorse utilizzate.
+        myDock: running Docker containers and their resource usage.
 
-        Uso: mydock [opzione]
-          (nessuna)   avvia e mostra il pannello; se è già in esecuzione, lo mostra
-          --hidden    avvia solo l'icona nella barra, senza aprire il pannello
-          --toggle    apre o chiude il pannello dell'istanza in esecuzione
-          --quit      chiude l'istanza in esecuzione
-          --dump      stampa i container e le loro risorse sul terminale ed esce
-          --help      mostra questo messaggio
+        Usage: mydock [option]
+          (none)      start and show the panel; if already running, show it
+          --hidden    start with the tray icon only, without opening the panel
+          --toggle    open or close the panel of the running instance
+          --quit      quit the running instance
+          --dump      print the containers and their resources to the terminal and exit
+          --help      show this message
         """;
 
     [STAThread]
     public static int Main(string[] args)
     {
+        // The UI is English-only, so numbers must not follow the OS locale ("2,1%").
+        CultureInfo.DefaultThreadCurrentCulture = CultureInfo.CurrentCulture = CultureInfo.InvariantCulture;
+
         if (args.Contains("--help") || args.Contains("-h"))
         {
             Console.WriteLine(Usage);

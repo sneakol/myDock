@@ -1,0 +1,14 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:loc="using:MyDock.App.Localization"
+        xmlns:v="using:MyDock.App.Views"
+        x:Class="MyDock.App.Views.LogWindow"
+        Title="{loc:L Log.WindowTitle}"
+        Width="760"
+        Height="520"
+        MinWidth="360"
+        MinHeight="240"
+        WindowStartupLocation="CenterScreen"
+        FontSize="13">
+  <v:LogView x:Name="Logs" ShowPopOut="False" />
+</Window>

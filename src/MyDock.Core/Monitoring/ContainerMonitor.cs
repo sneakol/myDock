@@ -1,6 +1,7 @@
 using System.Threading.Channels;
 using MyDock.Core.Docker;
 using MyDock.Core.Models;
+using MyDock.Core.Localization;
 
 namespace MyDock.Core.Monitoring;
 
@@ -30,9 +31,11 @@ public sealed class ContainerMonitor : IAsyncDisposable
     private readonly Lock _gate = new();
     private readonly Dictionary<string, Tracked> _containers = [];
     private readonly CancellationTokenSource _cts = new();
+    private readonly AlertTracker _alerts = new();
 
     private ConnectionState _connection = ConnectionState.Connecting;
     private bool _statsEnabled;
+    private IReadOnlySet<string>? _statsScope;
     private CancellationToken _sessionToken;
     private ChannelWriter<bool>? _refreshRequests;
     private volatile MonitorSnapshot _current = MonitorSnapshot.Initial;
@@ -46,6 +49,9 @@ public sealed class ContainerMonitor : IAsyncDisposable
 
     /// <summary>Raised from a background thread whenever <see cref="Current"/> has been replaced.</summary>
     public event Action? Changed;
+
+    /// <summary>Raised from a background thread for a crash, OOM kill, unhealthy transition or restart loop. Handler exceptions are swallowed.</summary>
+    public event Action<ContainerAlert>? Alerted;
 
     public MonitorSnapshot Current => _current;
 
@@ -71,13 +77,125 @@ public sealed class ContainerMonitor : IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// Limits the stats streams to these containers, e.g. the rows that are on screen; null means all running ones.
+    /// A container left out keeps its last stats, so sorting by load does not jump around.
+    /// </summary>
+    public void SetStatsScope(IReadOnlySet<string>? ids)
+    {
+        lock (_gate)
+        {
+            if (_statsScope is null ? ids is null : ids is not null && _statsScope.SetEquals(ids))
+                return;
+
+            _statsScope = ids is null ? null : new HashSet<string>(ids);
+            ReconcileStats();
+        }
+    }
+
     public void Start() => _loop ??= Task.Run(() => RunAsync(_cts.Token));
+
+    public IAsyncEnumerable<string> StreamLogsAsync(string id, int tail, bool follow, CancellationToken ct) =>
+        _docker.StreamLogsAsync(id, tail, follow, ct);
 
     public Task StartContainerAsync(string id, CancellationToken ct = default) => _docker.StartAsync(id, ct);
 
     public Task StopContainerAsync(string id, CancellationToken ct = default) => _docker.StopAsync(id, ct);
 
     public Task RestartContainerAsync(string id, CancellationToken ct = default) => _docker.RestartAsync(id, ct);
+
+    public Task PauseContainerAsync(string id, CancellationToken ct = default) => _docker.PauseAsync(id, ct);
+
+    public Task UnpauseContainerAsync(string id, CancellationToken ct = default) => _docker.UnpauseAsync(id, ct);
+
+    public Task KillContainerAsync(string id, CancellationToken ct = default) => _docker.KillAsync(id, ct);
+
+    public Task<DiskUsage> GetDiskUsageAsync(CancellationToken ct = default) => _docker.GetDiskUsageAsync(ct);
+
+    public Task<IReadOnlyList<ImageInfo>> ListImagesAsync(CancellationToken ct = default) => _docker.ListImagesAsync(ct);
+
+    /// <summary>
+    /// Removes every tag of the image, which removes the image itself with the last one; a dangling image goes by id.
+    /// Refuses an image that a container uses, because the daemon would still untag all but the last tag.
+    /// </summary>
+    public async Task DeleteImageAsync(ImageInfo image, CancellationToken ct = default)
+    {
+        if (image.Containers > 0 || Current.Containers.Any(c => c.Info.ImageId == image.Id))
+            throw new InvalidOperationException(Loc.Get("Err.ImageUsed"));
+
+        if (image.Tags.Count == 0)
+        {
+            await _docker.RemoveImageAsync(image.Id, ct).ConfigureAwait(false);
+            return;
+        }
+
+        foreach (var tag in image.Tags)
+            await _docker.RemoveImageAsync(tag, ct).ConfigureAwait(false);
+    }
+
+    public Task<IReadOnlyList<DockerVolume>> ListVolumesAsync(CancellationToken ct = default) => _docker.ListVolumesAsync(ct);
+
+    public Task DeleteVolumeAsync(DockerVolume volume, CancellationToken ct = default) => _docker.RemoveVolumeAsync(volume.Name, ct);
+
+    public Task<IReadOnlyList<DockerNetwork>> ListNetworksAsync(CancellationToken ct = default) => _docker.ListNetworksAsync(ct);
+
+    /// <summary>The known containers on the user-defined network <paramref name="name"/>; the built-in ones are not tracked.</summary>
+    public IReadOnlyList<string> ContainersOnNetwork(string name) =>
+        Current.Containers.Where(c => c.Info.Networks?.Split(", ").Contains(name) == true).Select(c => c.Info.Name).ToList();
+
+    public async Task<Inspection> InspectImageAsync(ImageInfo image, CancellationToken ct = default) => new(
+        await _docker.InspectAsync(InspectKind.Image, image.Id, ct).ConfigureAwait(false),
+        Current.Containers.Where(c => c.Info.ImageId == image.Id).Select(c => c.Info.Name).ToList());
+
+    public async Task<Inspection> InspectVolumeAsync(DockerVolume volume, CancellationToken ct = default) => new(
+        await _docker.InspectAsync(InspectKind.Volume, volume.Name, ct).ConfigureAwait(false),
+        await _docker.ContainersUsingVolumeAsync(volume.Name, ct).ConfigureAwait(false));
+
+    public async Task<Inspection> InspectNetworkAsync(DockerNetwork network, CancellationToken ct = default) => new(
+        await _docker.InspectAsync(InspectKind.Network, network.Id, ct).ConfigureAwait(false),
+        ContainersOnNetwork(network.Name));
+
+    public Task DeleteNetworkAsync(DockerNetwork network, CancellationToken ct = default) =>
+        network.IsBuiltIn
+            ? throw new InvalidOperationException(Loc.Get("Err.BuiltInNetwork", network.Name))
+            : _docker.RemoveNetworkAsync(network.Id, ct);
+
+    public Task<long> PruneImagesAsync(CancellationToken ct = default) => _docker.PruneImagesAsync(ct);
+
+    public Task<long> PruneVolumesAsync(CancellationToken ct = default) => _docker.PruneVolumesAsync(ct);
+
+    /// <summary>True when a container other than <paramref name="exceptContainerId"/>, running or not, uses the image.</summary>
+    public bool IsImageShared(string imageId, string exceptContainerId) =>
+        imageId.Length > 0 && Current.Containers.Any(c => c.Info.Id != exceptContainerId && c.Info.ImageId == imageId);
+
+    /// <summary>Removes a container and, when asked, its image, unless another container still uses that image.</summary>
+    public async Task DeleteContainerAsync(string id, bool alsoImage, CancellationToken ct = default)
+    {
+        var info = Current.Containers.FirstOrDefault(c => c.Info.Id == id)?.Info;
+        if (alsoImage && info is null)
+            throw new InvalidOperationException(Loc.Get("Err.ContainerGone"));
+        if (alsoImage && IsImageShared(info!.ImageId, id))
+            throw new InvalidOperationException(Loc.Get("Err.ImageUsedOther"));
+
+        await _docker.RemoveContainerAsync(id, ct).ConfigureAwait(false);
+        if (!alsoImage)
+            return;
+
+        try
+        {
+            await _docker.RemoveImageAsync(ImageReference(info!), ct).ConfigureAwait(false);
+        }
+        catch (DockerOperationException ex)
+        {
+            throw new DockerOperationException(Loc.Get("Err.ImageNotRemoved", ex.Message), ex);
+        }
+    }
+
+    // When a tag has moved on, the list shows a bare id instead of a name; deleting by name would then fail.
+    private static string ImageReference(ContainerInfo info) =>
+        info.Image.StartsWith("sha256:", StringComparison.Ordinal) || info.ImageId.StartsWith("sha256:" + info.Image, StringComparison.Ordinal)
+            ? info.ImageId
+            : info.Image;
 
     public async ValueTask DisposeAsync()
     {
@@ -171,6 +289,17 @@ public sealed class ContainerMonitor : IAsyncDisposable
         {
             await foreach (var e in _docker.WatchEventsAsync(since, ct).ConfigureAwait(false))
             {
+                if (_alerts.Process(e, DateTimeOffset.UtcNow) is { } alert)
+                {
+                    try
+                    {
+                        Alerted?.Invoke(alert);
+                    }
+                    catch (Exception)
+                    {
+                        // A broken handler must not end the event session.
+                    }
+                }
                 if (IsRelevant(e.Action))
                     requests.TryWrite(true);
             }
@@ -243,7 +372,8 @@ public sealed class ContainerMonitor : IAsyncDisposable
         {
             var wanted = _statsEnabled
                 && _connection == ConnectionState.Connected
-                && tracked.Info.State is ContainerState.Running or ContainerState.Paused;
+                && tracked.Info.State is ContainerState.Running or ContainerState.Paused
+                && (_statsScope is null || _statsScope.Contains(id));
 
             if (wanted && tracked.StatsCts is null)
             {
