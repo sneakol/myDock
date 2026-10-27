@@ -356,9 +356,29 @@ public sealed class ContainerMonitorTests : IAsyncDisposable
         _monitor.Start();
         await Connected();
 
-        Assert.Equal(1, _monitor.ContainersOnNetwork("shop_default"));
-        Assert.Equal(2, _monitor.ContainersOnNetwork("other"));
-        Assert.Equal(0, _monitor.ContainersOnNetwork("shop"));
+        Assert.Equal(["a"], _monitor.ContainersOnNetwork("shop_default"));
+        Assert.Equal(["a", "b"], _monitor.ContainersOnNetwork("other"));
+        Assert.Empty(_monitor.ContainersOnNetwork("shop"));
+    }
+
+    [Fact]
+    public async Task Inspecting_returns_the_json_and_the_containers_that_use_the_thing()
+    {
+        _docker.Set(
+            FakeDocker.Container("a", imageId: "sha256:img") with { Networks = "net" },
+            FakeDocker.Container("b"));
+        _docker.VolumeUsers = ["db"];
+        _monitor.Start();
+        await Connected();
+
+        var image = await _monitor.InspectImageAsync(new ImageInfo("sha256:img", ["x:1"], 1, DateTimeOffset.UnixEpoch, 1));
+        var volume = await _monitor.InspectVolumeAsync(new DockerVolume("vol", "local", 1, 1));
+        var network = await _monitor.InspectNetworkAsync(new DockerNetwork("nid", "net", "bridge", "local", DateTimeOffset.UnixEpoch));
+
+        Assert.Equal(["a"], image.UsedBy);
+        Assert.Equal(["db"], volume.UsedBy);
+        Assert.Equal(["a"], network.UsedBy);
+        Assert.Equal(["inspect Image sha256:img", "inspect Volume vol", "inspect Network nid"], _docker.Actions);
     }
 
     [Fact]

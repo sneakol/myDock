@@ -92,6 +92,8 @@ public partial class PanelWindow : Window
 
         if (_viewModel is { IsShowingOutput: true })
             _viewModel.CloseOutput();
+        else if (_viewModel is { Disk.Detail: not null })
+            _viewModel.Disk.CloseDetail();
         else if (_viewModel is { IsShowingDisk: true })
             _viewModel.CloseDisk();
         else if (_viewModel is { IsShowingSettings: true })
@@ -143,6 +145,19 @@ public partial class PanelWindow : Window
     }
 
     private void OnCloseDisk(object? sender, RoutedEventArgs e) => _viewModel?.CloseDisk();
+
+    private async void OnCopyDetail(object? sender, RoutedEventArgs e)
+    {
+        try
+        {
+            if (Clipboard is { } clipboard && _viewModel?.Disk?.Detail is { } detail)
+                await clipboard.SetTextAsync(detail.Json);
+        }
+        catch (Exception)
+        {
+            // async void: a clipboard failure must not take the app down.
+        }
+    }
 
     private async void OnCopyFixCommand(object? sender, RoutedEventArgs e)
     {

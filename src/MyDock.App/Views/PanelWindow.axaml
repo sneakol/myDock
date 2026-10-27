@@ -264,7 +264,7 @@
             <TextBlock Classes="secondary" Text="Start at login" />
           </CheckBox>
           <StackPanel Grid.Column="1" Orientation="Horizontal">
-            <Button Classes="link" Content="Disk" Command="{Binding ShowDiskCommand}" IsVisible="{Binding IsConnected}" />
+            <Button Classes="link" Content="Resources" Command="{Binding ShowDiskCommand}" IsVisible="{Binding IsConnected}" />
             <Button Classes="link" Content="Settings" Command="{Binding ShowSettingsCommand}" />
             <Button Classes="link" Content="Quit" Command="{Binding QuitCommand}" />
           </StackPanel>
@@ -285,8 +285,8 @@
       <Border Grid.RowSpan="4" Background="{DynamicResource PanelBackground}" IsVisible="{Binding IsShowingDisk}">
         <Grid RowDefinitions="Auto,Auto,*" DataContext="{Binding Disk}" x:DataType="vm:DiskViewModel">
           <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto,Auto,Auto" Margin="14,8,6,8">
-            <TextBlock Classes="title" Text="Disk" VerticalAlignment="Center" />
-            <Button Grid.Column="1" Classes="link" Content="Overview" Command="{Binding SelectTabCommand}"
+            <TextBlock Classes="title" Text="Resources" VerticalAlignment="Center" />
+            <Button Grid.Column="1" Classes="link" Content="Usage" Command="{Binding SelectTabCommand}"
                     CommandParameter="{x:Static vm:DiskTab.Overview}" IsEnabled="{Binding !IsOverview}" />
             <Button Grid.Column="2" Classes="link" Content="Images" Command="{Binding SelectTabCommand}"
                     CommandParameter="{x:Static vm:DiskTab.Images}" IsEnabled="{Binding !IsImages}" />
@@ -332,7 +332,7 @@
               <ItemsControl ItemsSource="{Binding Images}">
                 <ItemsControl.ItemTemplate>
                   <DataTemplate x:DataType="vm:ImageRowViewModel">
-                    <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8" Margin="0,4">
+                    <Grid ColumnDefinitions="*,Auto,28,Auto" ColumnSpacing="8" Margin="0,4">
                       <StackPanel VerticalAlignment="Center">
                         <TextBlock Classes="name" Text="{Binding Title}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Title}" />
                         <TextBlock Classes="secondary" Text="{Binding Subtitle}" TextTrimming="CharacterEllipsis" />
@@ -341,7 +341,10 @@
                         <TextBlock Classes="value" Text="{Binding Size}" />
                         <TextBlock Classes="value small" Text="{Binding UsedBy}" />
                       </StackPanel>
-                      <c:ConfirmButton Grid.Column="2" Classes="icon confirm" Command="{Binding DeleteCommand}"
+                      <Button Grid.Column="2" Classes="icon" Command="{Binding InspectCommand}" ToolTip.Tip="Details">
+                        <PathIcon Data="{StaticResource IconInfo}" />
+                      </Button>
+                      <c:ConfirmButton Grid.Column="3" Classes="icon confirm" Command="{Binding DeleteCommand}"
                                        ToolTip.Tip="Delete the image (the daemon refuses one that containers use)">
                         <Panel>
                           <PathIcon Data="{StaticResource IconTrash}" IsVisible="{Binding !$parent[c:ConfirmButton].IsArmed}" />
@@ -358,7 +361,7 @@
               <ItemsControl ItemsSource="{Binding Volumes}">
                 <ItemsControl.ItemTemplate>
                   <DataTemplate x:DataType="vm:VolumeRowViewModel">
-                    <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8" Margin="0,4">
+                    <Grid ColumnDefinitions="*,Auto,28,Auto" ColumnSpacing="8" Margin="0,4">
                       <StackPanel VerticalAlignment="Center">
                         <TextBlock Classes="name" Text="{Binding Title}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Volume.Name}" />
                         <TextBlock Classes="secondary" Text="{Binding Subtitle}" TextTrimming="CharacterEllipsis" />
@@ -367,7 +370,10 @@
                         <TextBlock Classes="value" Text="{Binding Size}" />
                         <TextBlock Classes="value small" Text="{Binding UsedBy}" />
                       </StackPanel>
-                      <c:ConfirmButton Grid.Column="2" Classes="icon confirm" Command="{Binding DeleteCommand}"
+                      <Button Grid.Column="2" Classes="icon" Command="{Binding InspectCommand}" ToolTip.Tip="Details">
+                        <PathIcon Data="{StaticResource IconInfo}" />
+                      </Button>
+                      <c:ConfirmButton Grid.Column="3" Classes="icon confirm" Command="{Binding DeleteCommand}"
                                        ToolTip.Tip="Delete the volume and its data (the daemon refuses one that containers mount)">
                         <Panel>
                           <PathIcon Data="{StaticResource IconTrash}" IsVisible="{Binding !$parent[c:ConfirmButton].IsArmed}" />
@@ -384,13 +390,16 @@
               <ItemsControl ItemsSource="{Binding Networks}">
                 <ItemsControl.ItemTemplate>
                   <DataTemplate x:DataType="vm:NetworkRowViewModel">
-                    <Grid ColumnDefinitions="*,Auto,28" ColumnSpacing="8" Margin="0,4">
+                    <Grid ColumnDefinitions="*,Auto,28,Auto" ColumnSpacing="8" Margin="0,4">
                       <StackPanel VerticalAlignment="Center">
                         <TextBlock Classes="name" Text="{Binding Title}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Title}" />
                         <TextBlock Classes="secondary" Text="{Binding Subtitle}" TextTrimming="CharacterEllipsis" />
                       </StackPanel>
                       <TextBlock Grid.Column="1" Classes="value small" VerticalAlignment="Center" Text="{Binding UsedBy}" />
-                      <c:ConfirmButton Grid.Column="2" Classes="icon confirm" Command="{Binding DeleteCommand}"
+                      <Button Grid.Column="2" Classes="icon" Command="{Binding InspectCommand}" ToolTip.Tip="Details">
+                        <PathIcon Data="{StaticResource IconInfo}" />
+                      </Button>
+                      <c:ConfirmButton Grid.Column="3" Classes="icon confirm" Command="{Binding DeleteCommand}"
                                        IsVisible="{Binding CanDelete}"
                                        ToolTip.Tip="Delete the network (the daemon refuses one that containers are attached to)">
                         <Panel>
@@ -403,6 +412,19 @@
                 </ItemsControl.ItemTemplate>
               </ItemsControl>
             </ScrollViewer>
+
+            <StackPanel Spacing="6" IsVisible="{Binding HasDetail}">
+              <Grid ColumnDefinitions="Auto,*,Auto">
+                <Button Classes="link" Content="‹ Back" Command="{Binding CloseDetailCommand}" />
+                <TextBlock Grid.Column="1" Classes="name" Text="{Binding Detail.Title}" VerticalAlignment="Center"
+                           TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Detail.Title}" />
+                <Button Grid.Column="2" Classes="link" Content="Copy" Click="OnCopyDetail" />
+              </Grid>
+              <TextBlock Classes="secondary" TextWrapping="Wrap" Text="{Binding Detail.UsedBy}" />
+              <ScrollViewer MaxHeight="360" HorizontalScrollBarVisibility="Disabled">
+                <SelectableTextBlock FontFamily="monospace" FontSize="11" TextWrapping="Wrap" Text="{Binding Detail.Json}" />
+              </ScrollViewer>
+            </StackPanel>
 
             <StackPanel Spacing="8" IsVisible="{Binding IsOverview}">
             <TextBlock Classes="group" Margin="0,6,0,0" Text="CLEAN UP" />

@@ -1,4 +1,7 @@
 using System.Runtime.CompilerServices;
+using System.Text.Encodings.Web;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Threading.Channels;
 using Docker.DotNet;
 using Docker.DotNet.Models;
@@ -11,6 +14,13 @@ public sealed class DockerService : IDockerService
     public const string DefaultEndpoint = "unix:///var/run/docker.sock";
     private const string OldDaemonMessage = "This Docker daemon is too old to report disk usage (API 1.52 or newer is needed).";
     private const string ComposeProjectLabel = "com.docker.compose.project";
+
+    private static readonly JsonSerializerOptions InspectOptions = new()
+    {
+        WriteIndented = true,
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+    };
 
     private readonly DockerClient _client;
 
@@ -130,6 +140,24 @@ public sealed class DockerService : IDockerService
     public Task RemoveNetworkAsync(string id, CancellationToken ct) =>
         RunAsync(() => _client.Networks.DeleteNetworkAsync(id, ct));
 
+    public Task<string> InspectAsync(InspectKind kind, string id, CancellationToken ct) =>
+        RunAsync(async () => kind switch
+        {
+            InspectKind.Image => ToJson(await _client.Images.InspectImageAsync(id, ct).ConfigureAwait(false)),
+            InspectKind.Volume => ToJson(await _client.Volumes.InspectAsync(id, ct).ConfigureAwait(false)),
+            _ => ToJson(await _client.Networks.InspectNetworkAsync(id, ct).ConfigureAwait(false)),
+        });
+
+    public Task<IReadOnlyList<string>> ContainersUsingVolumeAsync(string name, CancellationToken ct) =>
+        RunAsync<IReadOnlyList<string>>(async () =>
+            (await _client.Containers.ListContainersAsync(new ContainersListParameters
+            {
+                All = true,
+                Filters = new Dictionary<string, IDictionary<string, bool>> { ["volume"] = new Dictionary<string, bool> { [name] = true } },
+            }, ct).ConfigureAwait(false))
+            .Select(c => c.Names?.FirstOrDefault()?.TrimStart('/') ?? ShortId(c.ID))
+            .ToList());
+
     public Task<long> PruneImagesAsync(CancellationToken ct) =>
         RunAsync(async () => (long)(await _client.Images.PruneImagesAsync(new ImagesPruneParameters(), ct).ConfigureAwait(false)).SpaceReclaimed);
 
@@ -173,6 +201,8 @@ public sealed class DockerService : IDockerService
             Line(r.VolumeUsage?.TotalCount, r.VolumeUsage?.TotalSize, r.VolumeUsage?.Reclaimable),
             Line(r.BuildCacheUsage?.TotalCount, r.BuildCacheUsage?.TotalSize, r.BuildCacheUsage?.Reclaimable));
     }
+
+    internal static string ToJson<T>(T value) => JsonSerializer.Serialize(value, InspectOptions);
 
     internal static DockerNetwork ToNetwork(NetworkResponse n) => new(
         n.ID ?? "",

@@ -29,6 +29,11 @@ public sealed partial class DiskViewModel : ObservableObject
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsOverview), nameof(IsImages), nameof(IsVolumes), nameof(IsNetworks))]
     private DiskTab _tab;
+
+    // While a detail is open it takes the place of whichever tab is selected.
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasDetail), nameof(IsOverview), nameof(IsImages), nameof(IsVolumes), nameof(IsNetworks))]
+    private InspectViewModel? _detail;
     [ObservableProperty] private bool _isBusy;
     [ObservableProperty] private string? _error;
     [ObservableProperty] private string? _result;
@@ -39,13 +44,15 @@ public sealed partial class DiskViewModel : ObservableObject
         _ = RefreshAsync();
     }
 
-    public bool IsOverview => Tab == DiskTab.Overview;
+    public bool HasDetail => Detail is not null;
 
-    public bool IsImages => Tab == DiskTab.Images;
+    public bool IsOverview => Detail is null && Tab == DiskTab.Overview;
 
-    public bool IsVolumes => Tab == DiskTab.Volumes;
+    public bool IsImages => Detail is null && Tab == DiskTab.Images;
 
-    public bool IsNetworks => Tab == DiskTab.Networks;
+    public bool IsVolumes => Detail is null && Tab == DiskTab.Volumes;
+
+    public bool IsNetworks => Detail is null && Tab == DiskTab.Networks;
 
     [RelayCommand]
     private Task RefreshAsync() => GuardAsync(Tab switch
@@ -59,9 +66,29 @@ public sealed partial class DiskViewModel : ObservableObject
     [RelayCommand]
     private Task SelectTabAsync(DiskTab tab)
     {
+        Detail = null;
         Tab = tab;
         return RefreshAsync();
     }
+
+    [RelayCommand]
+    public void CloseDetail() => Detail = null;
+
+    private Task InspectImageAsync(ImageRowViewModel row) => ShowDetailAsync(row.Title, () => _monitor.InspectImageAsync(row.Image));
+
+    private Task InspectVolumeAsync(VolumeRowViewModel row) => ShowDetailAsync(row.Volume.Name, () => _monitor.InspectVolumeAsync(row.Volume));
+
+    private Task InspectNetworkAsync(NetworkRowViewModel row) => ShowDetailAsync(row.Title, () => _monitor.InspectNetworkAsync(row.Network));
+
+    private Task ShowDetailAsync(string title, Func<Task<Inspection>> load) => GuardAsync(async () =>
+    {
+        var tab = Tab;
+        var inspection = await load();
+
+        // The user may have moved to another tab while the daemon answered.
+        if (Tab == tab)
+            Detail = new InspectViewModel(title, inspection);
+    });
 
     // Deleting a volume deletes its data, and the daemon refuses one that a container still mounts.
     private Task DeleteVolumeAsync(VolumeRowViewModel row) => GuardAsync(async () =>
@@ -81,13 +108,13 @@ public sealed partial class DiskViewModel : ObservableObject
         Networks = (await _monitor.ListNetworksAsync())
             .OrderBy(n => n.IsBuiltIn)
             .ThenBy(n => n.Name, StringComparer.OrdinalIgnoreCase)
-            .Select(n => new NetworkRowViewModel(n, _monitor.ContainersOnNetwork(n.Name), DeleteNetworkAsync))
+            .Select(n => new NetworkRowViewModel(n, _monitor.ContainersOnNetwork(n.Name).Count, DeleteNetworkAsync, InspectNetworkAsync))
             .ToList();
 
     private async Task LoadVolumesAsync() =>
         Volumes = (await _monitor.ListVolumesAsync())
             .OrderByDescending(v => v.Size)
-            .Select(v => new VolumeRowViewModel(v, DeleteVolumeAsync))
+            .Select(v => new VolumeRowViewModel(v, DeleteVolumeAsync, InspectVolumeAsync))
             .ToList();
 
     private Task DeleteImageAsync(ImageRowViewModel row) => GuardAsync(async () =>
@@ -116,7 +143,7 @@ public sealed partial class DiskViewModel : ObservableObject
     private async Task LoadImagesAsync() =>
         Images = (await _monitor.ListImagesAsync())
             .OrderByDescending(i => i.Size)
-            .Select(i => new ImageRowViewModel(i, DeleteImageAsync))
+            .Select(i => new ImageRowViewModel(i, DeleteImageAsync, InspectImageAsync))
             .ToList();
 
     [RelayCommand]

@@ -202,6 +202,16 @@ public sealed class DockerServiceMappingTests
     }
 
     [Fact]
+    public void Inspect_json_is_indented_skips_nulls_and_keeps_plus_signs_readable()
+    {
+        var json = DockerService.ToJson(new Volume { Name = "db", CreatedAt = "2026-01-01T00:00:00+01:00", Driver = "local" });
+
+        Assert.Contains("\n  \"Name\": \"db\"", json);
+        Assert.Contains("+01:00", json);
+        Assert.DoesNotContain("Labels", json);
+    }
+
+    [Fact]
     public void Disk_usage_in_an_unknown_shape_is_an_error() =>
         Assert.Throws<DockerOperationException>(() => DockerService.ToDiskUsage(new SystemDataUsageInfoResponse()));
 

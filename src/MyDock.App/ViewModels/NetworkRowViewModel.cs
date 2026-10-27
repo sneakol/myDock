@@ -8,16 +8,19 @@ public sealed class NetworkRowViewModel
 {
     private readonly int _containers;
 
-    public NetworkRowViewModel(DockerNetwork network, int containers, Func<NetworkRowViewModel, Task> delete)
+    public NetworkRowViewModel(DockerNetwork network, int containers, Func<NetworkRowViewModel, Task> delete, Func<NetworkRowViewModel, Task> inspect)
     {
         Network = network;
         _containers = containers;
         DeleteCommand = new AsyncRelayCommand(() => delete(this));
+        InspectCommand = new AsyncRelayCommand(() => inspect(this));
     }
 
     public DockerNetwork Network { get; }
 
     public IAsyncRelayCommand DeleteCommand { get; }
+
+    public IAsyncRelayCommand InspectCommand { get; }
 
     public bool CanDelete => !Network.IsBuiltIn;
 

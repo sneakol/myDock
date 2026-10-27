@@ -138,9 +138,21 @@ public sealed class ContainerMonitor : IAsyncDisposable
 
     public Task<IReadOnlyList<DockerNetwork>> ListNetworksAsync(CancellationToken ct = default) => _docker.ListNetworksAsync(ct);
 
-    /// <summary>How many known containers are on the user-defined network <paramref name="name"/>; the built-in ones are not tracked.</summary>
-    public int ContainersOnNetwork(string name) =>
-        Current.Containers.Count(c => c.Info.Networks?.Split(", ").Contains(name) == true);
+    /// <summary>The known containers on the user-defined network <paramref name="name"/>; the built-in ones are not tracked.</summary>
+    public IReadOnlyList<string> ContainersOnNetwork(string name) =>
+        Current.Containers.Where(c => c.Info.Networks?.Split(", ").Contains(name) == true).Select(c => c.Info.Name).ToList();
+
+    public async Task<Inspection> InspectImageAsync(ImageInfo image, CancellationToken ct = default) => new(
+        await _docker.InspectAsync(InspectKind.Image, image.Id, ct).ConfigureAwait(false),
+        Current.Containers.Where(c => c.Info.ImageId == image.Id).Select(c => c.Info.Name).ToList());
+
+    public async Task<Inspection> InspectVolumeAsync(DockerVolume volume, CancellationToken ct = default) => new(
+        await _docker.InspectAsync(InspectKind.Volume, volume.Name, ct).ConfigureAwait(false),
+        await _docker.ContainersUsingVolumeAsync(volume.Name, ct).ConfigureAwait(false));
+
+    public async Task<Inspection> InspectNetworkAsync(DockerNetwork network, CancellationToken ct = default) => new(
+        await _docker.InspectAsync(InspectKind.Network, network.Id, ct).ConfigureAwait(false),
+        ContainersOnNetwork(network.Name));
 
     public Task DeleteNetworkAsync(DockerNetwork network, CancellationToken ct = default) =>
         network.IsBuiltIn

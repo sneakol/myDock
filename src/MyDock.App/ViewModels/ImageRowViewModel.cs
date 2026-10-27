@@ -7,15 +7,18 @@ namespace MyDock.App.ViewModels;
 /// <summary>One image in the Disk overlay; deleting is up to the owner, which reloads the list afterwards.</summary>
 public sealed class ImageRowViewModel
 {
-    public ImageRowViewModel(ImageInfo image, Func<ImageRowViewModel, Task> delete)
+    public ImageRowViewModel(ImageInfo image, Func<ImageRowViewModel, Task> delete, Func<ImageRowViewModel, Task> inspect)
     {
         Image = image;
         DeleteCommand = new AsyncRelayCommand(() => delete(this));
+        InspectCommand = new AsyncRelayCommand(() => inspect(this));
     }
 
     public ImageInfo Image { get; }
 
     public IAsyncRelayCommand DeleteCommand { get; }
+
+    public IAsyncRelayCommand InspectCommand { get; }
 
     public string Title => Image.Tags.Count > 0 ? Image.Tags[0] : "<untagged>";
 

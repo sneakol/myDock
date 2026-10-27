@@ -7,6 +7,13 @@ namespace MyDock.Core.Docker;
 /// <param name="ExitCode">Only set on "die".</param>
 public sealed record ContainerEvent(string Action, string ContainerId, string? Name = null, int? ExitCode = null);
 
+public enum InspectKind
+{
+    Image,
+    Volume,
+    Network,
+}
+
 /// <summary>The only seam that knows about the Docker client library.</summary>
 public interface IDockerService : IDisposable
 {
@@ -51,6 +58,12 @@ public interface IDockerService : IDisposable
 
     /// <summary>Removes a network; the daemon refuses a built-in one and one that containers are still attached to.</summary>
     Task RemoveNetworkAsync(string id, CancellationToken ct);
+
+    /// <summary>The daemon's inspect answer for an image (id or tag), volume (name) or network (id), as pretty-printed JSON.</summary>
+    Task<string> InspectAsync(InspectKind kind, string id, CancellationToken ct);
+
+    /// <summary>Names of the containers, running or not, that mount the volume.</summary>
+    Task<IReadOnlyList<string>> ContainersUsingVolumeAsync(string name, CancellationToken ct);
 
     /// <summary>Removes dangling (untagged, unused) images; returns the bytes freed.</summary>
     Task<long> PruneImagesAsync(CancellationToken ct);
