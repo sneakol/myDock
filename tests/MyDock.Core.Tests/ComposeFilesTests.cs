@@ -103,6 +103,53 @@ public class ComposeFilesTests
         }
     }
 
+    [Theory]
+    [InlineData("name: \"shop\"  # comment\nservices: {}\n", "shop")]
+    [InlineData("---\nname: dashed\nservices: {}\n", "dashed")]
+    [InlineData("{name: flow, services: {}}\n", "flow")]
+    [InlineData("\"name\": quoted-key\n", "quoted-key")]
+    [InlineData("x-id: &id anchored\nname: *id\n", "anchored")]
+    [InlineData("name: >-\n  folded\nservices: {}\n", "folded")]
+    public void ProjectName_reads_the_name_with_a_real_yaml_parser(string yaml, string expected)
+    {
+        var dir = Directory.CreateTempSubdirectory("yaml.").FullName;
+        try
+        {
+            var file = Path.Combine(dir, "compose.yaml");
+            File.WriteAllText(file, yaml);
+
+            Assert.Equal(expected, ComposeFiles.ProjectName(file, null));
+        }
+        finally
+        {
+            Directory.Delete(dir, true);
+        }
+    }
+
+    [Theory]
+    [InlineData("name: [unclosed\n")]
+    [InlineData("name: ~\n")]
+    [InlineData("name: null\n")]
+    [InlineData("name: ${PROJECT}\n")]
+    [InlineData("name:\n  - a\n  - b\n")]
+    [InlineData("- just\n- a list\n")]
+    [InlineData("")]
+    public void ProjectName_falls_back_to_the_folder_when_the_yaml_gives_no_usable_name(string yaml)
+    {
+        var dir = Directory.CreateTempSubdirectory("fallback.").FullName;
+        try
+        {
+            var file = Path.Combine(dir, "compose.yaml");
+            File.WriteAllText(file, yaml);
+
+            Assert.StartsWith("fallback", ComposeFiles.ProjectName(file, null));
+        }
+        finally
+        {
+            Directory.Delete(dir, true);
+        }
+    }
+
     [Fact]
     public void ProjectName_is_null_for_a_dockerfile() =>
         Assert.Null(ComposeFiles.ProjectName("/p/Dockerfile", null));

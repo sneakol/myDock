@@ -1,3 +1,6 @@
+using YamlDotNet.Core;
+using YamlDotNet.RepresentationModel;
+
 namespace MyDock.Core.Docker;
 
 public enum ComposeFileKind
@@ -84,7 +87,7 @@ public static class ComposeFiles
     /// The compose project name <paramref name="path"/> runs as, or null for a Dockerfile. Same precedence as compose:
     /// COMPOSE_PROJECT_NAME in the env file, then the top-level <c>name:</c>, then the folder name.
     /// </summary>
-    // shortcut: line scan, no YAML/dotenv parser; switch to one if quoting or anchors matter.
+    // shortcut: the .env file is still a line scan (no dotenv parser): quoting and interpolation there are not handled.
     public static string? ProjectName(string path, string? envFile)
     {
         if (Detect(path) != ComposeFileKind.Compose)
@@ -99,7 +102,7 @@ public static class ComposeFiles
 
         if (File.Exists(path))
         {
-            var fromFile = ValueOf(File.ReadLines(path), "name", ':');
+            var fromFile = NameInFile(path);
             if (fromFile is not null && !fromFile.Contains('$'))
                 return fromFile;
         }
@@ -107,6 +110,28 @@ public static class ComposeFiles
         var dir = Path.GetFileName(Path.GetDirectoryName(Path.GetFullPath(path)));
         var name = new string((dir ?? "").ToLowerInvariant().Where(c => char.IsAsciiLetterOrDigit(c) || c is '_' or '-').ToArray());
         return name.Length == 0 ? null : name;
+    }
+
+    // The top-level scalar "name:" of the first YAML document; null when absent, not a scalar, or the file is not valid YAML.
+    private static string? NameInFile(string path)
+    {
+        try
+        {
+            var yaml = new YamlStream();
+            using var reader = File.OpenText(path);
+            yaml.Load(reader);
+
+            if (yaml.Documents is [{ RootNode: YamlMappingNode root }, ..]
+                && root.Children.TryGetValue(new YamlScalarNode("name"), out var node)
+                && node is YamlScalarNode { Value: { } value } scalar && !string.IsNullOrWhiteSpace(value)
+                && !(scalar.Style == ScalarStyle.Plain && value is "~" or "null" or "Null" or "NULL"))
+                return value.Trim();
+        }
+        catch (Exception ex) when (ex is YamlException or IOException or UnauthorizedAccessException)
+        {
+        }
+
+        return null;
     }
 
     // First unindented "key<sep> value" line, unquoted and without trailing comment.
