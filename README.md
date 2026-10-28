@@ -1,5 +1,7 @@
 # myDock
 
+![CI](https://github.com/sneakol/myDock/actions/workflows/ci.yml/badge.svg)
+
 A small "widget" for Ubuntu that shows the running Docker containers and the resources they use:
 a tray icon with the container count, and a compact panel with the CPU, RAM, network and disk of
 each one, plus the commands to start, stop and restart them.
@@ -18,6 +20,12 @@ Written in .NET 10 with [Avalonia](https://avaloniaui.net/).
 
   Members of the `docker` group effectively have root privileges on the machine.
 - To build: the .NET 10 SDK (`sudo apt install dotnet-sdk-10.0`). The installed app does not need it.
+
+### Supported platforms
+
+- Ubuntu with GNOME, on an X11 or XWayland session: tested (the .deb is built for amd64 and arm64).
+- Other Linux distributions and desktops: untested. They need a system tray with AppIndicator support, and the app can be built from source.
+- Windows and macOS: not supported.
 
 ## Installation
 
@@ -88,6 +96,17 @@ Statistics are only sampled while the panel is open.
 
 For a daemon other than the local one, use the `DOCKER_HOST` variable. Settings live in `~/.config/mydock/settings.json`.
 
+## Troubleshooting
+
+| Symptom | Fix |
+|---|---|
+| "Cannot connect" / no containers | Check that the Docker Engine is running and that you are in the `docker` group (log out and back in after `usermod`). For a non-default daemon, set `DOCKER_HOST`. |
+| No tray icon | Install and enable the AppIndicator extension (`gnome-shell-extension-appindicator`); on stock Ubuntu it is on by default. |
+| No notifications | Install `libnotify-bin`. |
+| Compose, Dockerfile or shell buttons do nothing | They run the `docker` CLI, which must be in the `PATH`. |
+
+`mydock --dump` prints what the app sees, which helps to tell a connection problem from a UI one.
+
 ## Development
 
 ```bash
@@ -110,6 +129,10 @@ and reconnects by itself if the daemon goes away.
 
 The panel is placed at the top right because Avalonia on Linux uses X11 (here through XWayland):
 a native Wayland client cannot choose where to appear.
+
+## Contributing and security
+
+See [CONTRIBUTING.md](CONTRIBUTING.md). To report a vulnerability, follow [SECURITY.md](SECURITY.md).
 
 ## License
 
