@@ -8,6 +8,8 @@ each one, plus the commands to start, stop and restart them.
 
 Written in .NET 10 with [Avalonia](https://avaloniaui.net/).
 
+![The myDock panel listing two Compose projects with CPU, RAM and network per container](docs/screenshot.png)
+
 ## Requirements
 
 - Ubuntu with GNOME (tested on 26.04, Wayland session) and the AppIndicator extension, enabled by default.
