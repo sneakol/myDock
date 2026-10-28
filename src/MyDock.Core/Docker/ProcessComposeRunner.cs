@@ -44,7 +44,7 @@ public sealed class ProcessComposeRunner : IComposeRunner
             var stderr = PumpAsync(process.StandardError, output, keep: true, limit.Token);
             var stdout = PumpAsync(process.StandardOutput, output, keep: false, limit.Token);
             await process.WaitForExitAsync(limit.Token);
-            await stdout;
+            await Task.WhenAll(stdout, stderr);
             if (process.ExitCode != 0)
                 throw new DockerOperationException(Tail(await stderr), new InvalidOperationException($"docker exited with {process.ExitCode}"));
         }
