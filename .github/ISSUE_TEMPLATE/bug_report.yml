@@ -1,0 +1,38 @@
+name: Bug report
+description: Something does not work as expected
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected and what you got instead.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: myDock version
+      placeholder: "1.0.0"
+    validations:
+      required: true
+  - type: input
+    id: distro
+    attributes:
+      label: Distribution and desktop
+      placeholder: "Ubuntu 26.04, GNOME"
+    validations:
+      required: true
+  - type: dropdown
+    id: session
+    attributes:
+      label: Session type
+      options: [Wayland, X11, Not sure]
+    validations:
+      required: true
+  - type: textarea
+    id: dump
+    attributes:
+      label: Output of `mydock --dump`
+      description: Remove anything private (container names, images, ports) before pasting.
+      render: text
