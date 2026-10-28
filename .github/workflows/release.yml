@@ -12,6 +12,8 @@ permissions:
 
 jobs:
   package:
+    # Only the repository owner can build or publish packages.
+    if: github.actor == github.repository_owner
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
