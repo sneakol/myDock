@@ -483,3 +483,6 @@ $RECYCLE.BIN/
 
 # Packages built by packaging/build-deb.sh
 /dist/
+
+# Claude Code local settings
+/.claude/
